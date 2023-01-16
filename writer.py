@@ -44,6 +44,20 @@ class Statusbar(ttk.Frame):
         count = len(re.findall('\w+', event.widget.get('1.0', 'end-1c')))
         self.word_count.set(f"Wordcount: {count}")
 
+class Highlighter():
+    def match_pattern(target, pattern, tag):
+        """ Removes all highlights and highlights all matches of the pattern. """
+
+        # remove tag
+        target.tag_remove(tag, "1.0", tk.END)
+
+        # find and highlight all matches
+        lines = target.get("1.0", tk.END).splitlines()
+        for i, line in enumerate(lines):
+            for match in re.finditer(pattern, line):
+                target.tag_add(tag, f"{i + 1}.{match.start()}", f"{i + 1}.{match.end()}")
+
+
 class Workspace(ttk.Frame):
     def __init__(self, master, text_width):
         super().__init__(master)
@@ -56,9 +70,6 @@ class Workspace(ttk.Frame):
         self.text = ExtendedText(frame, wrap=tk.WORD, width=text_width, undo=True)
         self.text.pack(side=tk.TOP, fill=tk.Y, expand=True, pady=8)
 
-        # apply style for title tag
-        self.text.tag_config("title", ttk.Style().configure("Title.TText"))
-
         # scrollbar
         self.scroll = AutoScrollbar(self, orient=tk.VERTICAL)
 
@@ -70,15 +81,16 @@ class Workspace(ttk.Frame):
         self.scroll["command"] = lambda *args: self.text.yview(*args)
         self.text["yscrollcommand"] = lambda first, last: self.scroll.set(first, last)
 
+        self._apply_style()
+
     def read(self):
         return self.text.get('1.0', 'end-1c')
 
     def write(self, text):
         # clear text
         self.text.delete('1.0', tk.END)
-        # insert new text if available
-        if text:
-            self.text.insert('1.0', text)
+        # insert new text
+        self.text.insert('1.0', text)
         # prevent undoing reading the file
         self.text.edit_reset()
 
@@ -91,23 +103,8 @@ class Workspace(ttk.Frame):
     def focus_set(self) -> None:
         return self.text.focus_set()
 
-    def highlight_pattern(self, pattern, tag):
-        """ Cleans all highlights and highlights all matches of the pattern. """
-        self.text.tag_remove(tag, "1.0", tk.END)
-
-        # generates a list of tupes containing the start and end indices of the matches
-        matches = []
-        text = self.text.get("1.0", tk.END).splitlines()
-        for i, line in enumerate(text):
-            for match in re.finditer(pattern, line):
-                matches.append((f"{i + 1}.{match.start()}", f"{i + 1}.{match.end()}"))
-
-        # highlight all matches
-        for match in matches:
-            self.text.tag_add(tag, match[0], match[1])
-
     def hightlight_title(self):
-        self.highlight_pattern(r"#[^\n]*", "title")
+        Highlighter.match_pattern(self.text, r"#[^\n]*", "title")
 
     def get_text_width(self):
         return self.text.cget('width')
@@ -126,36 +123,35 @@ class Writer(tk.Tk):
         config = ConfigParser()
         config.read(config_path)
 
-        theme_dir = config.get('theme', 'dir', fallback=None)
-        theme_name = config.get('theme', 'name', fallback=None)
+        self.theme_config = {
+            'dir': config.get('theme', 'dir', fallback=None),
+            'name': config.get('theme', 'name', fallback=None)
+        }
 
-        width = config.getint('window', 'width', fallback=1200)
-        height = config.getint('window', 'height', fallback=800)
-        zoomed = config.getboolean('window', 'maximized', fallback=False)
+        self.window_config = {
+            'width': config.getint('window', 'width', fallback=1200),
+            'height': config.getint('window', 'height', fallback=800),
+            'state': config.get('window', 'state', fallback='normal'),
+            'text_width': config.getint('window', 'text_width', fallback=128)
+        }
 
-        text_width = config.getint('window', 'text_width', fallback=128)
-
-        self.geometry(f"{width}x{height}")
-
-        if zoomed:
-            self.state('zoomed')
+        self.config_path = config_path
 
         # setup
+        self.geometry(f"{self.window_config['width']}x{self.window_config['height']}")
+        self.state(self.window_config['state'])
+
         self._filedialog_options = { "defaultextension" : ".txt", "filetypes": [ ("All Files", "*.*") ] }
 
-        self.width = width
-        self.height = height
-
         # style
-        self.style = ttk.Style()
-        self.theme_names = load_themes(self.style, theme_dir)
+        style = ttk.Style()
+        self.theme_names = load_themes(style, self.theme_config['dir'])
 
-        self.style.theme_use(theme_name)
-        self.theme = tk.StringVar(self, self.style.theme_use())
-        self.theme_dir = theme_dir
+        style.theme_use(self.theme_config['name'])
+        self.theme_var = tk.StringVar(self, style.theme_use())
 
         # workspace
-        self.workspace = Workspace(self, text_width)
+        self.workspace = Workspace(self, self.window_config['text_width'])
 
         # status bar
         self.statusbar = Statusbar(self)
@@ -172,17 +168,19 @@ class Writer(tk.Tk):
         self.bind("<<InsertMove>>", self.statusbar.update_insert_pos)
         self.bind("<<TextChange>>", self.on_text_change)
 
-        # self.bind("<Configure>", self.on_resize)
-
         self.protocol("WM_DELETE_WINDOW", self.exit)
 
         # focus on text widget
         self.workspace.focus_set()
 
-        self.new_file(None)
+        self.new_file()
 
-    def _apply_theme(self):
-        self.style.theme_use(self.theme.get())
+    def theme_use(self, name=None):
+        if name is None:
+            return ttk.Style().theme_use()
+
+        ttk.Style.theme_use(name)
+        self.workspace._apply_style()
 
     def on_text_change(self, event):
         self.statusbar.update_word_count(event)
@@ -191,11 +189,6 @@ class Writer(tk.Tk):
         if self.saved:
             self.saved = False
             self.update_title()
-
-    def on_resize(self, event):
-        if event.widget == '.':
-            print("widget", event.widget)
-            print("height", event.height, "width", event.width)
 
     def load_menu(self):
         menu = tk.Menu(self)
@@ -228,8 +221,8 @@ class Writer(tk.Tk):
         menu_themes = tk.Menu(menu_view, tearoff=0)
 
         for theme in self.theme_names:
-            menu_themes.add_radiobutton(label=theme, value=theme, variable=self.theme, 
-                command=lambda: self._apply_theme())
+            menu_themes.add_radiobutton(label=theme, value=theme, variable=self.theme_var,
+                command=lambda: self.theme_use(self.theme_var.get()))
 
         menu_view.add_cascade(label="Themes", menu=menu_themes)
 
@@ -316,25 +309,31 @@ class Writer(tk.Tk):
             self.statusbar.error(f"Failed to save {self.path}")
             return False
 
+    def update_window_config(self):
+        if self.state() != 'zoomed':
+            self.window_config['width'] = self.winfo_width()
+            self.window_config['height'] = self.winfo_height()
+
+        self.window_config['state'] = 'zoomed' if self.state() == 'zoomed' else 'normal'
+        self.window_config['text_width'] = self.workspace.get_text_width()
+
+        return self.window_config
+
+    def update_theme_config(self):
+        self.theme_config['name'] = self.theme_use()
+        return self.theme_config
+
     def exit(self, *args):
 
         # save config
         config = ConfigParser()
-        config['window'] = {
-            'width': self.winfo_width(),
-            'height': self.winfo_height(),
-            'maximized': self.state() == 'zoomed',
-            'text_width': self.workspace.get_text_width()
-        }
+        config['window'] = self.update_window_config()
+        config['theme'] = self.update_theme_config()
 
-        config['theme'] = {
-            'dir': self.theme_dir,
-            'name': self.theme.get()
-        }
-
-        with open('config.ini', 'w') as configfile:
+        with open(self.config_path, 'w') as configfile:
             config.write(configfile)
 
+        # check if file needs to be saved
         if self.saved:
             self.destroy()
             return
