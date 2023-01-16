@@ -37,7 +37,7 @@ namespace eval ttk::theme::dark {
             -background $colors(-bg_text) \
             -foreground $colors(-fg_text) \
             -insertbackground $colors(-fg_text) \
-            -padding {16} \
+            -padx 16 -pady 16 \
             -borderwidth 1 -relief solid \
 
         ttk::style configure Title.TText \

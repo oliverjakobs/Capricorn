@@ -49,14 +49,6 @@ class ThemedText(tk.Text):
         config = { k: style_config[k] for k in self.configure().keys() if k in style_config }
         config |= (style.configure(widget_name) or {})
 
-        padding = config.pop('padding', '').split(' ')
-
-        # apply padding
-        if padding:
-            config['padx'] = padding[0] or 0
-            config['pady'] = padding[1] if len(padding) > 1 else config['padx']
-
-
         self.configure(config)
 
 class ExtendedText(ThemedText):
@@ -81,6 +73,7 @@ class ExtendedText(ThemedText):
             
             return result
         except TclError as e:
+            print("ignore error:", command, *args)
             pass
 
 

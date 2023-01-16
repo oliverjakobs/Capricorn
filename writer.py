@@ -30,6 +30,9 @@ class Statusbar(ttk.Frame):
         self.status.grid(row=0, column=0, sticky=tk.W, padx=8, pady=2)
         frame.grid(row=0, column=1, sticky=tk.E, padx=32, pady=2)
 
+        # events
+        self.bind("<<TextChange>>", lambda e: print("text change"))
+
     def write(self, msg):
         self.status.write(msg)
 
@@ -57,7 +60,6 @@ class Highlighter():
             for match in re.finditer(pattern, line):
                 target.tag_add(tag, f"{i + 1}.{match.start()}", f"{i + 1}.{match.end()}")
 
-
 class Workspace(ttk.Frame):
     def __init__(self, master, text_width):
         super().__init__(master)
@@ -82,11 +84,16 @@ class Workspace(ttk.Frame):
         self.text["yscrollcommand"] = lambda first, last: self.scroll.set(first, last)
 
         self._apply_style()
+        
+        # focus on text widget
+        self.text.focus_set()
 
-    def read(self):
-        return self.text.get('1.0', 'end-1c')
+    def clear_text(self):
+        self.text.delete('1.0', tk.END)
+        # prevent undoing clearing the text
+        self.text.edit_reset()
 
-    def write(self, text):
+    def set_content(self, text):
         # clear text
         self.text.delete('1.0', tk.END)
         # insert new text
@@ -94,14 +101,14 @@ class Workspace(ttk.Frame):
         # prevent undoing reading the file
         self.text.edit_reset()
 
+    def get_content(self):
+        return self.text.get('1.0', 'end-1c')
+
     def undo(self) -> None:
         self.text.edit_undo()
 
     def redo(self) -> None:
         self.text.edit_redo()
-
-    def focus_set(self) -> None:
-        return self.text.focus_set()
 
     def hightlight_title(self):
         Highlighter.match_pattern(self.text, r"#[^\n]*", "title")
@@ -114,6 +121,7 @@ class Workspace(ttk.Frame):
 
         # apply style for title tag
         self.text.tag_config("title", ttk.Style().configure("Title.TText"))
+    
 
 class Writer(tk.Tk):
     def __init__(self, config_path):
@@ -159,21 +167,20 @@ class Writer(tk.Tk):
         self.workspace.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
         self.statusbar.pack(side=tk.BOTTOM, fill=tk.X)
 
-        # bind events
-        self.bind("<Control-n>", self.new_file)
-        self.bind("<Control-o>", self.open_file)
-        self.bind("<Control-s>", self.save)
-        self.bind("<Control-S>", self.save_as)
+        # bind events (binding to text widgets to prevent text specific events)
+        self.bind_class('Text', "<Control-n>", self.new_file)
+        self.bind_class('Text', "<Control-o>", self.open)
+        self.bind_class('Text', "<Control-s>", self.save)
+        self.bind_class('Text', "<Control-S>", self.save_as)
 
         self.bind("<<InsertMove>>", self.statusbar.update_insert_pos)
         self.bind("<<TextChange>>", self.on_text_change)
 
         self.protocol("WM_DELETE_WINDOW", self.exit)
 
-        # focus on text widget
-        self.workspace.focus_set()
-
-        self.new_file()
+        self.saved = True
+        self.set_filename(None)
+        self.update_title()
 
     def theme_use(self, name=None):
         if name is None:
@@ -192,11 +199,11 @@ class Writer(tk.Tk):
 
     def load_menu(self):
         menu = tk.Menu(self)
-        
+
         # file
         menu_file = tk.Menu(menu, tearoff=0)
         menu_file.add_command(label="New File", accelerator="Ctrl+N", command=self.new_file)
-        menu_file.add_command(label="Open File", accelerator="Ctrl+O", command=self.open_file)
+        menu_file.add_command(label="Open File", accelerator="Ctrl+O", command=self.open)
         menu_file.add_separator()
         menu_file.add_command(label="Save", accelerator="Ctrl+S", command=self.save)
         menu_file.add_command(label="Save As", accelerator="Ctrl+Shift+S", command=self.save_as)
@@ -239,15 +246,14 @@ class Writer(tk.Tk):
     def set_filename(self, filename):
         self.path = os.path.abspath(filename or "")
         self.filename = os.path.basename(filename) if filename else "untitled"
-        self.update_title()
-    
+
     def update_title(self):
         self.title(self.filename if self.saved else "*" + self.filename)
 
     def read_file(self, filename) -> bool:
         try:
             with open(filename, "r") as f:
-                self.workspace.write(f.read())
+                self.workspace.set_content(f.read())
         except UnicodeDecodeError as e:
             messagebox.showerror("UnicodeDecodeError", f"Could not open {filename}:\n{e}")
             return False
@@ -262,7 +268,7 @@ class Writer(tk.Tk):
     def write_file(self, filename) -> bool:
         try:
             with open(filename, "w") as f:
-                f.write(self.workspace.read())
+                f.write(self.workspace.get_content())
         except Exception as e:
             messagebox.showerror("Error", f"Could not save {filename}:\n{e}")
             return False
@@ -271,43 +277,39 @@ class Writer(tk.Tk):
         self.set_filename(filename)
         return True
 
-    def new_file(self, *args):
-        self.workspace.write(None)
+    def new_file(self, event=None):
+        self.workspace.clear_text()
         self.saved = True
         self.set_filename(None)
 
-    def open_file(self, *args):
-        filename = filedialog.askopenfilename(**self._filedialog_options)
-        if not filename:
+        self.update_title()
+
+    def open(self, event=None, filename=None) -> bool:
+        path = filename or filedialog.askopenfilename(**self._filedialog_options)
+        if not path:
             return
 
-        if self.read_file(filename):
-            self.statusbar.write(f"Opened {self.path}")
+        if self.read_file(path):
+            self.statusbar.write(f"Opened {path}")
         else:
-            self.statusbar.error(f"Failed to open {self.path}")
+            self.statusbar.error(f"Failed to open {path}")
 
-    def save(self, *args):
-        if not self.path:
-            return self.save_as()
+        self.update_title()
 
-        if self.write_file(self.path):
-            self.statusbar.write(f"Successfully saved {self.path}")
-            return True
+    def save(self, event=None):
+        return self.save_as(event=event, filename=self.path)
+
+    def save_as(self, event=None, filename=None) -> bool:
+        path = filename or filedialog.asksaveasfilename(**self._filedialog_options)
+        if not path:
+            return
+
+        if self.write_file(path):
+            self.statusbar.write(f"Successfully saved {path}")
         else:
-            self.statusbar.error(f"Failed to save {self.path}")
-            return False
+            self.statusbar.error(f"Failed to save {path}")
 
-    def save_as(self, *args):
-        filename = filedialog.asksaveasfilename(**self._filedialog_options)
-        if not filename:
-            return False
-
-        if self.write_file(filename):
-            self.statusbar.write(f"Successfully saved {self.path}")
-            return True
-        else:
-            self.statusbar.error(f"Failed to save {self.path}")
-            return False
+        self.update_title()
 
     def update_window_config(self):
         if self.state() != 'zoomed':
@@ -323,6 +325,22 @@ class Writer(tk.Tk):
         self.theme_config['name'] = self.theme_use()
         return self.theme_config
 
+    def should_close(self):
+        if self.saved:
+            return True
+
+        # ask if unsaved changes should be saved
+        title = "Save on Close"
+        prompt = f"Do you want to save changes to \"{self.filename}\"?"
+        result = messagebox.askyesnocancel(title=title, message=prompt, default=messagebox.YES, parent=self)
+
+        if result and self.save():  # yes
+            return True
+        elif result is False:       # no
+            return True
+
+        return False
+
     def exit(self, *args):
 
         # save config
@@ -333,19 +351,10 @@ class Writer(tk.Tk):
         with open(self.config_path, 'w') as configfile:
             config.write(configfile)
 
-        # check if file needs to be saved
-        if self.saved:
+        if self.should_close():
             self.destroy()
-            return
 
-        title = "Save on Close"
-        prompt = f"Do you want to save changes to \"{self.filename}\"?"
-        result = messagebox.askyesnocancel(title=title, message=prompt, default=messagebox.YES, parent=self)
 
-        if result and self.save():  # yes
-            self.destroy()
-        elif result is False:       # no
-            self.destroy()
 
 if __name__ == "__main__":
     filename = sys.argv[1] if len(sys.argv) > 1 else None
@@ -356,7 +365,7 @@ if __name__ == "__main__":
     app.load_menu()
 
     # read file
-    app.read_file(filename)
+    app.open(filename=filename)
 
     app.mainloop()
 
