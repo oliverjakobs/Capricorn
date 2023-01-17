@@ -2,9 +2,6 @@ import tkinter as tk
 
 from tkinter import ttk, TclError
 
-import traceback, os
-from glob import glob
-
 class AutoScrollbar(ttk.Scrollbar):
     """ Scrollbar that is only visible when needed. Only works with grid. """
     def __init__(self, master=None, **kw):
@@ -80,11 +77,13 @@ class ExtendedText(ThemedText):
 ######################################################################
 
 ######################################################################
-
-def load_themes(style, dir):
+import os
+#TODO: load from str
+#TODO: load from pkgIndex.tcl
+def load_themes(style, *files):
     old_themes = style.theme_names()
 
-    for file in glob(f"{dir}/*.tcl"):
+    for file in files:
         style.tk.call('source', os.path.abspath(file))
 
     return [theme for theme in style.theme_names() if theme not in old_themes]

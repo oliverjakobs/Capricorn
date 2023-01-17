@@ -1,5 +1,6 @@
 import os, sys, re
 from configparser import ConfigParser
+from glob import glob
 
 # import tkinter
 import tkinter as tk
@@ -31,13 +32,15 @@ class View(tk.Tk):
         
         # style
         style = ttk.Style()
-        self.theme_names = load_themes(style, theme_config['dir'])
+        self.theme_names = load_themes(style, *glob(f"{theme_config['dir']}/*.tcl"))
 
         style.theme_use(theme_config['name'])
 
         # content
         self.load_workspace(window_config['text_width']).pack(side=tk.TOP, fill=tk.BOTH, expand=True)
         self.load_statusbar().pack(side=tk.BOTTOM, fill=tk.X)
+
+        self.load_menu()
 
         self._apply_style()
 
@@ -59,11 +62,11 @@ class View(tk.Tk):
 
         # file
         menu_file = tk.Menu(menu, tearoff=0)
-        menu_file.add_command(label="New File", accelerator="Ctrl+N", command=lambda e: self.event_generate('<<new>>'))
-        menu_file.add_command(label="Open File", accelerator="Ctrl+O", command=lambda e: self.event_generate('<<open>>'))
+        menu_file.add_command(label="New File", accelerator="Ctrl+N", command=lambda: self.event_generate('<<new>>'))
+        menu_file.add_command(label="Open File", accelerator="Ctrl+O", command=lambda: self.event_generate('<<open>>'))
         menu_file.add_separator()
-        menu_file.add_command(label="Save", accelerator="Ctrl+S", command=lambda e: self.event_generate('<<save>>'))
-        menu_file.add_command(label="Save As", accelerator="Ctrl+Shift+S", command=lambda e: self.event_generate('<<save-as>>'))
+        menu_file.add_command(label="Save", accelerator="Ctrl+S", command=lambda: self.event_generate('<<save>>'))
+        menu_file.add_command(label="Save As", accelerator="Ctrl+Shift+S", command=lambda: self.event_generate('<<save-as>>'))
         menu_file.add_separator()
         menu_file.add_command(label="Exit", command=lambda e: self.event_generate('<<wnd-close>>'))
 
@@ -243,32 +246,57 @@ class Workspace():
 
         return 'cancel'
 
+DEFAULT_CONFIG = {
+    'window': {
+        'width': 1200,
+        'height': 800,
+        'state': 'normal',
+        'text_width': 128
+    },
+    'theme': {
+        'dir': './themes',
+        'name': 'dark'
+    },
+    'colors': {
+        'fg_main':   '#e1e4e8',
+        'bg_main':   '#454545',
+        'bg_status': '#2f2f2f',
+        'fg_text':   '#000000',
+        'bg_text':   '#f1f1f1',
+        'fg_title':  '#b392f0',
+        'scrollbar': '#6f6f6f'
+    }
+}
+
+FILEDIALOG_OPTIONS = {
+    "defaultextension" : ".txt",
+    "filetypes": [ ("All Files", "*.*") ]
+}
+
 class Writer():
-    def __init__(self, config_path):
+    def __init__(self, config_path, filename):
 
         # parse config file
-        config = ConfigParser()
+        config = ConfigParser(DEFAULT_CONFIG)
+
         config.read(config_path)
 
-        self.theme_config = {
-            'dir': config.get('theme', 'dir', fallback='./themes'),
-            'name': config.get('theme', 'name', fallback='dark')
+        self.window_config = {
+            'width': config.getint('window', 'width'),
+            'height': config.getint('window', 'height'),
+            'state': config.get('window', 'state'),
+            'text_width': config.getint('window', 'text_width')
         }
 
-        self.window_config = {
-            'width': config.getint('window', 'width', fallback=1200),
-            'height': config.getint('window', 'height', fallback=800),
-            'state': config.get('window', 'state', fallback='normal'),
-            'text_width': config.getint('window', 'text_width', fallback=128)
+        self.theme_config = {
+            'dir': config.get('theme', 'dir'),
+            'name': config.get('theme', 'name')
         }
 
         self.config_path = config_path
 
         # setup
         self.view = View(self.window_config, self.theme_config)
-
-        self._filedialog_options = { "defaultextension" : ".txt", "filetypes": [ ("All Files", "*.*") ] }
-
         self.workspace = Workspace(self.view.text)
 
         # bind events (binding to text widgets to prevent text specific events)
@@ -276,7 +304,6 @@ class Writer():
         self.view.bind_class('Text', "<Control-o>", self.open)
         self.view.bind_class('Text', "<Control-s>", self.save)
         self.view.bind_class('Text', "<Control-S>", self.save_as)
-
 
         self.view.bind("<<text-changed>>", self.on_text_change)
         self.view.bind("<<insert-moved>>", self.on_insert_move)
@@ -289,7 +316,14 @@ class Writer():
 
         self.view.protocol("WM_DELETE_WINDOW", self.exit)
 
+        # read file
+        if filename:
+            self.workspace.read_file(filename)
+
         self.update_title()
+
+    def run(self):
+        self.view.mainloop()
 
     def on_text_change(self, event):
         self.view.update_word_count()
@@ -310,7 +344,7 @@ class Writer():
         self.update_title()
 
     def open(self, event=None, filename=None) -> bool:
-        path = filename or filedialog.askopenfilename(**self._filedialog_options)
+        path = filename or filedialog.askopenfilename(**FILEDIALOG_OPTIONS)
         if not path:
             return False
 
@@ -327,7 +361,7 @@ class Writer():
         return self.save_as(event=event, filename=self.workspace.path)
 
     def save_as(self, event=None, filename=None) -> bool:
-        path = filename or filedialog.asksaveasfilename(**self._filedialog_options)
+        path = filename or filedialog.asksaveasfilename(**FILEDIALOG_OPTIONS)
         if not path:
             return False
 
@@ -355,14 +389,9 @@ class Writer():
             self.view.destroy()
 
 
-
 if __name__ == "__main__":
     filename = sys.argv[1] if len(sys.argv) > 1 else None
     
-    app = Writer("config.ini")
-
-    # read file
-    app.open(filename=filename)
-
-    app.view.mainloop()
+    app = Writer("config.ini", filename)
+    app.run()
 
