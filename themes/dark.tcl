@@ -1,36 +1,37 @@
 # Theme dark
 namespace eval ttk::theme::dark {
-    
-    # Widget colors
-    variable colors
+    # Style colors
     array set colors {
-        -foreground     "#e1e4e8"
-        -background     "#454545"
-        -background2    "#2f2f2f"
-        -fg_text        "#000000"
-        -bg_text        "#f1f1f1"
-        -fg_title       "#b392f0"
-        -scrollbar      "#6f6f6f"
+        -fg_main    "#e1e4e8"
+        -bg_main    "#454545"
+        -bg_status  "#2f2f2f"
+        -fg_text    "#000000"
+        -bg_text    "#f1f1f1"
+        -fg_title   "#b392f0"
+        -scrollbar  "#6f6f6f"
     }
 
-    # Create a new ttk::style
+    set base_font {"Courier New" 10}
+    set title_font {"Courier New" 24 bold}
+
+    # Create style
     ttk::style theme create dark -parent default -settings {
-        # Configure basic style settings
+        # Basic style settings
         ttk::style configure . \
-            -background $colors(-background) \
-            -foreground $colors(-foreground) \
-            -font {"Courier New" 10}
+            -background $colors(-bg_main) \
+            -foreground $colors(-fg_main) \
+            -font $base_font
 
-        # WIDGET LAYOUTS
-
-        # scrollbar
+        # Scrollbar
         ttk::style layout Vertical.TScrollbar {
             Vertical.Scrollbar.trough -sticky ns -children {
                 Vertical.Scrollbar.thumb -expand true
             }
         }
 
-        # Style elements
+        ttk::style configure TScrollbar \
+            -troughcolor $colors(-bg_main) -troughrelief flat \
+            -background $colors(-scrollbar) -relief flat
         
         # Text 
         ttk::style configure TText \
@@ -42,21 +43,10 @@ namespace eval ttk::theme::dark {
 
         ttk::style configure Title.TText \
             -foreground $colors(-fg_title) \
-            -font {"Courier New" 24 bold}
-
-        ttk::style configure TFrame -background $colors(-background)
+            -font $title_font
 
         # Statusbar
-        ttk::style configure Statusbar.TFrame -background $colors(-background2)
-        ttk::style configure Statusbar.TLabel -background $colors(-background2)
-
-        # scrollbar
-        ttk::style configure TScrollbar \
-            -troughcolor $colors(-background) -troughrelief flat \
-            -background $colors(-scrollbar) -relief flat
+        ttk::style configure Statusbar.TFrame -background $colors(-bg_status)
+        ttk::style configure Statusbar.TLabel -background $colors(-bg_status)
     }
 }
-
-variable version 0.1
-package provide ttk::theme::dark $version
-
