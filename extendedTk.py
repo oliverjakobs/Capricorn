@@ -66,10 +66,10 @@ class ExtendedText(ThemedText):
             result = self.tk.call((self._orig, command) + args)
 
             if command in ("insert", "delete", "replace"):
-                self.event_generate("<<TextChange>>")
-                self.event_generate("<<InsertMove>>")
+                self.event_generate("<<text-changed>>")
+                self.event_generate("<<insert-moved>>")
             elif command in ("mark"):
-                self.event_generate("<<InsertMove>>")
+                self.event_generate("<<insert-moved>>")
             
             return result
         except TclError as e:
