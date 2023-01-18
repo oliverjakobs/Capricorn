@@ -78,12 +78,28 @@ class ExtendedText(ThemedText):
 
 ######################################################################
 import os
-#TODO: load from str
-#TODO: load from pkgIndex.tcl
-def load_themes(style, *files):
-    old_themes = style.theme_names()
 
-    for file in files:
-        style.tk.call('source', os.path.abspath(file))
+class ExtendendThemes():
+    def __init__(self) -> None:
+        self.style = ttk.Style()
+        self.old_themes = self.style.theme_names()
+        self.added_themes = []
 
-    return [theme for theme in style.theme_names() if theme not in old_themes]
+    def load_from_files(self, *files):
+        for file in files:
+            self.style.tk.call('source', os.path.abspath(file))
+
+        self.added_themes = [t for t in self.style.theme_names() if t not in self.old_themes]
+
+    def load_from_str(self, *strings):
+        for s in strings:
+            self.style.tk.eval(s)
+            
+        self.added_themes = [t for t in self.style.theme_names() if t not in self.old_themes]
+
+    #TODO: load from pkgIndex.tcl
+    def load_from_index(self, dir, index_name='pkgIndex'):
+        ...
+
+    def theme_use(self, name):
+        self.style.theme_use(name)

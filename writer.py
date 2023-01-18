@@ -9,6 +9,61 @@ from tkinter import ttk, filedialog, messagebox
 # import own stuff
 from extendedTk import *
 
+BUILTIN_THEME = """
+# Theme dark
+namespace eval ttk::theme::dark {
+    # Style colors
+    array set colors {
+        -fg_main    "#e1e4e8"
+        -bg_main    "#454545"
+        -bg_status  "#2f2f2f"
+        -fg_text    "#000000"
+        -bg_text    "#f1f1f1"
+        -fg_title   "#b392f0"
+        -scrollbar  "#6f6f6f"
+    }
+
+    set base_font {"Courier New" 10}
+    set title_font {"Courier New" 24 bold}
+
+    # Create style
+    ttk::style theme create dark -parent default -settings {
+        # Basic style settings
+        ttk::style configure . \
+            -background $colors(-bg_main) \
+            -foreground $colors(-fg_main) \
+            -font $base_font
+
+        # Scrollbar
+        ttk::style layout Vertical.TScrollbar {
+            Vertical.Scrollbar.trough -sticky ns -children {
+                Vertical.Scrollbar.thumb -expand true
+            }
+        }
+
+        ttk::style configure TScrollbar \
+            -troughcolor $colors(-bg_main) -troughrelief flat \
+            -background $colors(-scrollbar) -relief flat
+        
+        # Text 
+        ttk::style configure TText \
+            -background $colors(-bg_text) \
+            -foreground $colors(-fg_text) \
+            -insertbackground $colors(-fg_text) \
+            -padx 16 -pady 16 \
+            -borderwidth 1 -relief solid \
+
+        ttk::style configure Title.TText \
+            -foreground $colors(-fg_title) \
+            -font $title_font
+
+        # Statusbar
+        ttk::style configure Statusbar.TFrame -background $colors(-bg_status)
+        ttk::style configure Statusbar.TLabel -background $colors(-bg_status)
+    }
+}
+"""
+
 class Highlighter():
     def match_pattern(target, pattern, tag):
         # remove tag
@@ -23,6 +78,71 @@ class Highlighter():
     def highlight_title(target):
         Highlighter.match_pattern(target, r"#[^\n]*", "title")
 
+class AboutDialog(tk.Toplevel):
+    """Modal about dialog for idle"""
+    def __init__(self, parent):
+        """Create popup, do not return until tk widget destroyed."""
+        super().__init__(parent)
+        self.configure(borderwidth=5)
+        # place dialog below parent if running htest
+        self.geometry("+%d+%d" % (parent.winfo_rootx()+30, parent.winfo_rooty()+30))
+
+        self.bg = "#bbbbbb"
+        self.fg = "#000000"
+        self.create_widgets()
+        self.resizable(height=False, width=False)
+        self.title('About')
+        self.transient(parent)
+        self.grab_set()
+        self.protocol("WM_DELETE_WINDOW", self.ok)
+        
+        self.button_ok.focus_set()
+        self.bind('<Return>', self.ok)  # dismiss dialog
+        self.bind('<Escape>', self.ok)  # dismiss dialog
+        self._current_textview = None
+        
+        self.deiconify()
+        self.wait_window()
+
+    def create_widgets(self):
+        frame = tk.Frame(self, borderwidth=2, relief=tk.SUNKEN)
+        frame_buttons = tk.Frame(self)
+        frame_buttons.pack(side=tk.BOTTOM, fill=tk.X)
+        frame.pack(side=tk.TOP, expand=True, fill=tk.BOTH)
+        self.button_ok = tk.Button(frame_buttons, text='Close', command=self.ok)
+        self.button_ok.pack(padx=5, pady=5)
+
+        frame_background = tk.Frame(frame, bg=self.bg)
+        frame_background.pack(expand=True, fill=tk.BOTH)
+
+        header = tk.Label(frame_background, text='Writer', fg=self.fg, bg=self.bg, font=('courier', 24, 'bold'))
+        header.grid(row=0, column=0, sticky=tk.E, padx=6, pady=10)
+
+        byline_text = "Distraction free writer app." + 5*'\n'
+        byline = tk.Label(frame_background, text=byline_text, justify=tk.LEFT, fg=self.fg, bg=self.bg)
+        byline.grid(row=2, column=0, sticky=tk.W, columnspan=3, padx=6, pady=5)
+        github = tk.Label(frame_background, text='https://github.com/oliverjakobs/writer', justify=tk.LEFT, fg=self.fg, bg=self.bg)
+        github.grid(row=6, column=0, columnspan=2, sticky=tk.W, padx=6, pady=6)
+
+
+        frame = tk.Frame(frame_background, borderwidth=1, relief=tk.SUNKEN, height=2, bg=self.bg)
+        frame.grid(row=8, column=0, sticky=tk.EW, columnspan=3, padx=5, pady=5)
+
+        py_buttons = tk.Frame(frame_background, bg=self.bg)
+        py_buttons.grid(row=10, column=0, columnspan=2, sticky=tk.NSEW)
+        self.py_license = tk.Button(py_buttons, text='README', width=8, highlightbackground=self.bg)
+        self.py_license.pack(side=tk.LEFT, padx=10, pady=10)
+        self.py_copyright = tk.Button(py_buttons, text='Copyright', width=8, highlightbackground=self.bg)
+        self.py_copyright.pack(side=tk.LEFT, padx=10, pady=10)
+        self.py_credits = tk.Button(py_buttons, text='Credits', width=8, highlightbackground=self.bg)
+        self.py_credits.pack(side=tk.LEFT, padx=10, pady=10)
+
+
+    def ok(self, event=None):
+        "Dismiss help_about dialog."
+        self.grab_release()
+        self.destroy()
+
 class View(tk.Tk):
     def __init__(self, window_config, theme_config):
         super().__init__()
@@ -31,10 +151,10 @@ class View(tk.Tk):
         self.state(window_config['state'])
         
         # style
-        style = ttk.Style()
-        self.theme_names = load_themes(style, *glob(f"{theme_config['dir']}/*.tcl"))
-
-        style.theme_use(theme_config['name'])
+        themes = ExtendendThemes()
+        #themes.load_from_files(*glob(f"{theme_config['dir']}/*.tcl"))
+        themes.load_from_str(BUILTIN_THEME)
+        themes.theme_use('dark')
 
         # content
         self.load_workspace(window_config['text_width']).pack(side=tk.TOP, fill=tk.BOTH, expand=True)
@@ -82,19 +202,20 @@ class View(tk.Tk):
         menu_edit.add_command(label="Find", accelerator="Ctrl+F")
         menu_edit.add_command(label="Replace", accelerator="Ctrl+H")
 
-        # view
-        menu_view = tk.Menu(menu, tearoff=0)
-        menu_view.add_command(label="Themes")
-
         # help
         menu_help = tk.Menu(menu, tearoff=0)
-        menu_help.add_command(label="About")
+        menu_help.add_command(label="About", command=self.about_dialog)
 
         menu.add_cascade(label="File", menu=menu_file)
         menu.add_cascade(label="Edit", menu=menu_edit)
-        menu.add_cascade(label="View", menu=menu_view)
         menu.add_cascade(label="Help", menu=menu_help)
         self.config(menu=menu)
+
+    def about_dialog(self, event=None):
+        "Handle Help 'About IDLE' event."
+        # Synchronize with macosx.overrideRootMenu.about_dialog.
+        AboutDialog(self)
+        return "break"
 
     def load_statusbar(self):
         bar = ttk.Frame(self, style='Statusbar.TFrame')
@@ -388,7 +509,8 @@ class Writer():
         if (result == 'yes' and self.save()) or result == 'no':
             self.view.destroy()
 
-
+#TODO: custom titlebar
+#TODO: style, font selector popup
 if __name__ == "__main__":
     filename = sys.argv[1] if len(sys.argv) > 1 else None
     
