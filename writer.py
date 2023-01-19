@@ -378,20 +378,7 @@ class Workspace():
         return True
     
     def ask_save(self):
-        if self.saved:
-            return 'no'
-
-        # ask if unsaved changes should be saved
-        title = "Save on Close"
-        prompt = f"Do you want to save changes to \"{self.filename}\"?"
-        result = messagebox.askyesnocancel(title=title, message=prompt, default=messagebox.YES)
-
-        if result is True:      # yes
-            return 'yes'
-        elif result is False:   # no
-            return 'no'
-
-        return 'cancel'
+        ...
     
     def get_config(self, config):
         config['last_file'] = self.path or ""
@@ -478,11 +465,37 @@ class Writer():
     def update_title(self):
         self.view.title(self.workspace.get_title())
 
-    def new_file(self, event=None):
+    def check_saved(self):
+        """ Check if the file is saved and can be closed. 
+            Returns True if it can be closed, esle False  """
+        
+        if self.workspace.saved:
+            return True
+
+        # ask if unsaved changes should be saved
+        title = "Save on Close"
+        prompt = f"Do you want to save changes to \"{self.workspace.filename}\"?"
+        result = messagebox.askyesnocancel(title=title, message=prompt, default=messagebox.YES)
+
+        if result is True:      # yes
+            return self.save()
+        elif result is False:   # no
+            return True
+
+        return False            # cancel
+
+    def new_file(self, event=None) -> bool:
+        if not self.check_saved():
+            return False
+
         self.workspace.new_file()
         self.update_title()
+        return True
 
     def open(self, event=None, filename=None) -> bool:
+        if not self.check_saved():
+            return False
+
         path = filename or filedialog.askopenfilename(**FILEDIALOG_OPTIONS)
         if not path:
             return False
@@ -523,13 +536,11 @@ class Writer():
         with open(self.config_path, 'w') as configfile:
             config.write(configfile)
 
-        result = self.workspace.ask_save()
-        if (result == 'yes' and self.save()) or result == 'no':
+        if self.check_saved():
             self.view.destroy()
 
 #TODO: custom titlebar
 #TODO: style, font selector popup
-#TODO: check save on new file/open file
 if __name__ == "__main__":
     filename = sys.argv[1] if len(sys.argv) > 1 else None
     
