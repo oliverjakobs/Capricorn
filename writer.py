@@ -1,6 +1,5 @@
 import os, sys, re
 from configparser import ConfigParser
-from glob import glob
 
 # import tkinter
 import tkinter as tk
@@ -65,7 +64,7 @@ namespace eval ttk::theme::dark {
 """
 
 class Highlighter():
-    def match_pattern(target, pattern, tag):
+    def match_pattern(target: tk.Text, pattern: str, tag: str) -> None:
         # remove tag
         target.tag_remove(tag, "1.0", tk.END)
 
@@ -75,7 +74,7 @@ class Highlighter():
             for match in re.finditer(pattern, line):
                 target.tag_add(tag, f"{i + 1}.{match.start()}", f"{i + 1}.{match.end()}")
 
-    def highlight_title(target):
+    def highlight_title(target: tk.Text) -> None:
         Highlighter.match_pattern(target, r"#[^\n]*", "title")
 
 class AboutDialog(tk.Toplevel):
@@ -87,55 +86,60 @@ class AboutDialog(tk.Toplevel):
         # place dialog below parent if running htest
         self.geometry("+%d+%d" % (parent.winfo_rootx()+30, parent.winfo_rooty()+30))
 
-        self.bg = "#bbbbbb"
-        self.fg = "#000000"
         self.create_widgets()
         self.resizable(height=False, width=False)
         self.title('About')
         self.transient(parent)
         self.grab_set()
-        self.protocol("WM_DELETE_WINDOW", self.ok)
         
         self.button_ok.focus_set()
         self.bind('<Return>', self.ok)  # dismiss dialog
         self.bind('<Escape>', self.ok)  # dismiss dialog
-        self._current_textview = None
-        
+
+        self.protocol("WM_DELETE_WINDOW", self.ok)
+
         self.deiconify()
         self.wait_window()
 
     def create_widgets(self):
-        frame = tk.Frame(self, borderwidth=2, relief=tk.SUNKEN)
-        frame_buttons = tk.Frame(self)
-        frame_buttons.pack(side=tk.BOTTOM, fill=tk.X)
-        frame.pack(side=tk.TOP, expand=True, fill=tk.BOTH)
-        self.button_ok = tk.Button(frame_buttons, text='Close', command=self.ok)
+        bg = "#bbbbbb"
+        fg = "#000000"
+
+        # content
+        frame_content = tk.Frame(self, borderwidth=1, relief=tk.SOLID, bg=bg)
+
+        header = tk.Label(frame_content, text='Writer', fg=fg, bg=bg, font=('courier', 24, 'bold'))
+        header.grid(row=0, column=0, sticky=tk.W, padx=6, pady=10)
+
+        byline_text = "Distraction free writer app." + (5 * '\n')
+        byline = tk.Label(frame_content, text=byline_text, fg=fg, bg=bg)
+        byline.grid(row=1, column=0, sticky=tk.W, padx=6, pady=5)
+        github = tk.Label(frame_content, text='https://github.com/oliverjakobs/writer', fg=fg, bg=bg)
+        github.grid(row=2, column=0, sticky=tk.W, padx=6, pady=6)
+
+        separator = ttk.Separator(frame_content, orient=tk.HORIZONTAL)
+        separator.grid(row=3, column=0, sticky=tk.EW, padx=5, pady=5)
+
+        # buttons
+        frame_buttons = tk.Frame(frame_content, bg=bg)
+
+        self.btn_readme = tk.Button(frame_buttons, text='README', width=8, highlightbackground=bg)
+        self.btn_readme.pack(side=tk.LEFT, padx=10, pady=10)
+        self.btn_copyright = tk.Button(frame_buttons, text='Copyright', width=8, highlightbackground=bg)
+        self.btn_copyright.pack(side=tk.LEFT, padx=10, pady=10)
+        self.btn_credits = tk.Button(frame_buttons, text='Credits', width=8, highlightbackground=bg)
+        self.btn_credits.pack(side=tk.LEFT, padx=10, pady=10)
+
+        frame_buttons.grid(row=4, column=0, sticky=tk.NSEW)
+
+        # footer
+        frame_footer = tk.Frame(self)
+
+        self.button_ok = tk.Button(frame_footer, text='Close', padx=6, command=self.ok)
         self.button_ok.pack(padx=5, pady=5)
 
-        frame_background = tk.Frame(frame, bg=self.bg)
-        frame_background.pack(expand=True, fill=tk.BOTH)
-
-        header = tk.Label(frame_background, text='Writer', fg=self.fg, bg=self.bg, font=('courier', 24, 'bold'))
-        header.grid(row=0, column=0, sticky=tk.E, padx=6, pady=10)
-
-        byline_text = "Distraction free writer app." + 5*'\n'
-        byline = tk.Label(frame_background, text=byline_text, justify=tk.LEFT, fg=self.fg, bg=self.bg)
-        byline.grid(row=2, column=0, sticky=tk.W, columnspan=3, padx=6, pady=5)
-        github = tk.Label(frame_background, text='https://github.com/oliverjakobs/writer', justify=tk.LEFT, fg=self.fg, bg=self.bg)
-        github.grid(row=6, column=0, columnspan=2, sticky=tk.W, padx=6, pady=6)
-
-
-        frame = tk.Frame(frame_background, borderwidth=1, relief=tk.SUNKEN, height=2, bg=self.bg)
-        frame.grid(row=8, column=0, sticky=tk.EW, columnspan=3, padx=5, pady=5)
-
-        py_buttons = tk.Frame(frame_background, bg=self.bg)
-        py_buttons.grid(row=10, column=0, columnspan=2, sticky=tk.NSEW)
-        self.py_license = tk.Button(py_buttons, text='README', width=8, highlightbackground=self.bg)
-        self.py_license.pack(side=tk.LEFT, padx=10, pady=10)
-        self.py_copyright = tk.Button(py_buttons, text='Copyright', width=8, highlightbackground=self.bg)
-        self.py_copyright.pack(side=tk.LEFT, padx=10, pady=10)
-        self.py_credits = tk.Button(py_buttons, text='Credits', width=8, highlightbackground=self.bg)
-        self.py_credits.pack(side=tk.LEFT, padx=10, pady=10)
+        frame_content.pack(side=tk.TOP, expand=True, fill=tk.BOTH)
+        frame_footer.pack(side=tk.BOTTOM, fill=tk.X)
 
 
     def ok(self, event=None):
@@ -144,11 +148,11 @@ class AboutDialog(tk.Toplevel):
         self.destroy()
 
 class View(tk.Tk):
-    def __init__(self, window_config, theme_config):
+    def __init__(self, config):
         super().__init__()
 
-        self.geometry(f"{window_config['width']}x{window_config['height']}")
-        self.state(window_config['state'])
+        self.geometry(f"{config['width']}x{config['height']}")
+        self.state(config['state'])
         
         # style
         themes = ExtendendThemes()
@@ -157,10 +161,16 @@ class View(tk.Tk):
         themes.theme_use('dark')
 
         # content
-        self.load_workspace(window_config['text_width']).pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+        self.load_workspace().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
         self.load_statusbar().pack(side=tk.BOTTOM, fill=tk.X)
 
         self.load_menu()
+
+        # bind events (binding to text widget to override text specific events)
+        self.text.bind('<Control-n>', self.on_new)
+        self.text.bind('<Control-o>', self.on_open)
+        self.text.bind('<Control-s>', self.on_save)
+        self.text.bind('<Control-S>', self.on_save_as)
 
         self._apply_style()
 
@@ -182,11 +192,11 @@ class View(tk.Tk):
 
         # file
         menu_file = tk.Menu(menu, tearoff=0)
-        menu_file.add_command(label="New File", accelerator="Ctrl+N", command=lambda: self.event_generate('<<new>>'))
-        menu_file.add_command(label="Open File", accelerator="Ctrl+O", command=lambda: self.event_generate('<<open>>'))
+        menu_file.add_command(label="New File", accelerator="Ctrl+N", command=self.on_new)
+        menu_file.add_command(label="Open File", accelerator="Ctrl+O", command=self.on_open)
         menu_file.add_separator()
-        menu_file.add_command(label="Save", accelerator="Ctrl+S", command=lambda: self.event_generate('<<save>>'))
-        menu_file.add_command(label="Save As", accelerator="Ctrl+Shift+S", command=lambda: self.event_generate('<<save-as>>'))
+        menu_file.add_command(label="Save", accelerator="Ctrl+S", command=self.on_save)
+        menu_file.add_command(label="Save As", accelerator="Ctrl+Shift+S", command=self.on_save_as)
         menu_file.add_separator()
         menu_file.add_command(label="Exit", command=lambda e: self.event_generate('<<wnd-close>>'))
 
@@ -211,11 +221,25 @@ class View(tk.Tk):
         menu.add_cascade(label="Help", menu=menu_help)
         self.config(menu=menu)
 
+    def on_new(self, event=None):
+        self.event_generate('<<new>>')
+        return 'break'
+
+    def on_open(self, event=None):
+        self.event_generate('<<open>>')
+        return 'break'
+
+    def on_save(self, event=None):
+        self.event_generate('<<save>>')
+        return 'break'
+
+    def on_save_as(self, event=None):
+        self.event_generate('<<save-as>>')
+        return 'break'
+
     def about_dialog(self, event=None):
-        "Handle Help 'About IDLE' event."
-        # Synchronize with macosx.overrideRootMenu.about_dialog.
         AboutDialog(self)
-        return "break"
+        return 'break'
 
     def load_statusbar(self):
         bar = ttk.Frame(self, style='Statusbar.TFrame')
@@ -240,7 +264,7 @@ class View(tk.Tk):
 
         return bar
 
-    def load_workspace(self, text_width):
+    def load_workspace(self,):
         workspace = ttk.Frame(self)
 
         workspace.columnconfigure(0, weight=1)
@@ -248,7 +272,7 @@ class View(tk.Tk):
 
         # text frame
         frame = ttk.Frame(workspace)
-        self.text = ExtendedText(frame, wrap=tk.WORD, width=text_width, undo=True)
+        self.text = ExtendedText(frame, wrap=tk.WORD, undo=True)
         self.text.pack(side=tk.TOP, fill=tk.Y, expand=True, pady=8)
 
         # scrollbar
@@ -281,34 +305,36 @@ class View(tk.Tk):
         count = len(re.findall('\w+', self.text.get('1.0', 'end-1c')))
         self.word_count.set(f"Wordcount: {count}")
 
-    def update_window_config(self, config):
+    def get_config(self, config):
         if self.state() != 'zoomed':
             config['width'] = self.winfo_width()
             config['height'] = self.winfo_height()
 
         config['state'] = 'zoomed' if self.state() == 'zoomed' else 'normal'
-        config['text_width'] = self.text.cget('width')
 
-        return config
-
-    def update_theme_config(self, config):
-        config['name'] = self.theme_use()
         return config
 
 
 class Workspace():
-    def __init__(self, text):
+    def __init__(self, config, text):
 
         self.text = text
+        self.text.configure(width=config['text_width'])
+
         self.saved = True
         self.set_filename(None)
-    
+
     def set_filename(self, filename):
-        self.path = os.path.abspath(filename or "")
+        self.path = os.path.abspath(filename) if filename else None
         self.filename = os.path.basename(filename) if filename else "untitled"
 
     def get_title(self):
         return ("" if self.saved else "*") + self.filename
+
+    def set_unsaved(self):
+        was_saved = self.saved
+        self.saved = False
+        return was_saved
 
     def new_file(self):
         self.text.delete('1.0', tk.END)
@@ -366,17 +392,21 @@ class Workspace():
             return 'no'
 
         return 'cancel'
+    
+    def get_config(self, config):
+        config['last_file'] = self.path or ""
+        config['text_width'] = self.text.cget('width')
+        return config
 
 DEFAULT_CONFIG = {
-    'window': {
-        'width': 1200,
-        'height': 800,
-        'state': 'normal',
-        'text_width': 128
+    'view': {
+        'width': '1200',
+        'height': '800',
+        'state': 'normal'
     },
-    'theme': {
-        'dir': './themes',
-        'name': 'dark'
+    'workspace': {
+        'text_width': '128',
+        'last_file': ''
     },
     'colors': {
         'fg_main':   '#e1e4e8',
@@ -398,34 +428,22 @@ class Writer():
     def __init__(self, config_path, filename):
 
         # parse config file
-        config = ConfigParser(DEFAULT_CONFIG)
-
+        config = ConfigParser()
+        config.read_dict(DEFAULT_CONFIG)
         config.read(config_path)
 
-        self.window_config = {
-            'width': config.getint('window', 'width'),
-            'height': config.getint('window', 'height'),
-            'state': config.get('window', 'state'),
-            'text_width': config.getint('window', 'text_width')
-        }
-
-        self.theme_config = {
-            'dir': config.get('theme', 'dir'),
-            'name': config.get('theme', 'name')
-        }
+        self.view_config = dict(config['view'])
+        self.ws_config = dict(config['workspace'])
 
         self.config_path = config_path
 
-        # setup
-        self.view = View(self.window_config, self.theme_config)
-        self.workspace = Workspace(self.view.text)
+        #view
+        self.view = View(self.view_config)
 
-        # bind events (binding to text widgets to prevent text specific events)
-        self.view.bind_class('Text', "<Control-n>", self.new_file)
-        self.view.bind_class('Text', "<Control-o>", self.open)
-        self.view.bind_class('Text', "<Control-s>", self.save)
-        self.view.bind_class('Text', "<Control-S>", self.save_as)
+        # workspace
+        self.workspace = Workspace(self.ws_config, self.view.text)
 
+        # bind events
         self.view.bind("<<text-changed>>", self.on_text_change)
         self.view.bind("<<insert-moved>>", self.on_insert_move)
 
@@ -438,8 +456,9 @@ class Writer():
         self.view.protocol("WM_DELETE_WINDOW", self.exit)
 
         # read file
-        if filename:
-            self.workspace.read_file(filename)
+        path = filename or self.ws_config['last_file']
+        if path:
+            self.workspace.read_file(path)
 
         self.update_title()
 
@@ -450,8 +469,7 @@ class Writer():
         self.view.update_word_count()
         Highlighter.highlight_title(self.view.text)
 
-        if self.workspace.saved:
-            self.workspace.saved = False
+        if self.workspace.set_unsaved():
             self.update_title()
 
     def on_insert_move(self, event):
@@ -499,8 +517,8 @@ class Writer():
 
         # save config
         config = ConfigParser()
-        config['window'] = self.view.update_window_config(self.window_config)
-        config['theme'] = self.view.update_theme_config(self.theme_config)
+        config['view'] = self.view.get_config(self.view_config)
+        config['workspace'] = self.workspace.get_config(self.ws_config)
 
         with open(self.config_path, 'w') as configfile:
             config.write(configfile)
@@ -511,6 +529,7 @@ class Writer():
 
 #TODO: custom titlebar
 #TODO: style, font selector popup
+#TODO: check save on new file/open file
 if __name__ == "__main__":
     filename = sys.argv[1] if len(sys.argv) > 1 else None
     

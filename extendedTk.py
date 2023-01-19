@@ -70,7 +70,7 @@ class ExtendedText(ThemedText):
             
             return result
         except TclError as e:
-            print("ignore error:", command, *args)
+            #print("ignore error:", command, *args)
             pass
 
 
