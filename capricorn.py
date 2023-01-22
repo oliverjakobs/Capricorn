@@ -21,6 +21,7 @@ class Theme():
         """)
 
     def load(self, tk):
+        # set colors
         tk.eval(f""" 
         namespace eval ttk::theme::capricorn {{
             array set colors {{
@@ -35,6 +36,7 @@ class Theme():
         }}
         """)
 
+        # set fonts
         tk.eval(f"""
         namespace eval ttk::theme::capricorn {{
             set main_font {self.fonts['main']}
@@ -42,9 +44,9 @@ class Theme():
         }}
         """)
 
+        # apply theme settings
         tk.eval("""
         namespace eval ttk::theme::capricorn {
-            # Create style
             ttk::style theme settings capricorn {
                 # Basic style settings
                 ttk::style configure . \
@@ -566,7 +568,6 @@ class Capricorn():
         if self.check_saved():
             self.view.destroy()
 
-#TODO: custom titlebar
 #TODO: style, font selector popup
 #TODO: latex exporter
 if __name__ == '__main__':
