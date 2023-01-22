@@ -8,50 +8,17 @@ from tkinter import ttk, filedialog, messagebox
 # import own stuff
 from extendedTk import *
 
-BASE_THEME = """
-namespace eval ttk::theme::capricorn {
-    # Create style
-    ttk::style theme create capricorn -parent default -settings {
-        # Basic style settings
-        ttk::style configure . \
-            -background $colors(-bg_main) \
-            -foreground $colors(-fg_main) \
-            -font $main_font
-
-        # Scrollbar
-        ttk::style layout Vertical.TScrollbar {
-            Vertical.Scrollbar.trough -sticky ns -children {
-                Vertical.Scrollbar.thumb -expand true
-            }
-        }
-
-        ttk::style configure TScrollbar \
-            -troughcolor $colors(-bg_main) -troughrelief flat \
-            -background $colors(-scrollbar) -relief flat
-        
-        # Text 
-        ttk::style configure TText \
-            -background $colors(-bg_text) \
-            -foreground $colors(-fg_text) \
-            -insertbackground $colors(-fg_text) \
-            -padx 16 -pady 16 \
-            -borderwidth 1 -relief solid \
-
-        ttk::style configure Title.TText \
-            -foreground $colors(-fg_title) \
-            -font $title_font
-
-        # Statusbar
-        ttk::style configure Statusbar.TFrame -background $colors(-bg_status)
-        ttk::style configure Statusbar.TLabel -background $colors(-bg_status)
-    }
-}
-"""
-
 class Theme():
     def __init__(self, colors, fonts) -> None:
         self.colors = colors
         self.fonts = fonts
+
+    def create_style(self, tk):
+        tk.eval("""
+        namespace eval ttk::theme::capricorn {
+            ttk::style theme create capricorn -parent default
+        }
+        """)
 
     def load(self, tk):
         tk.eval(f""" 
@@ -75,7 +42,45 @@ class Theme():
         }}
         """)
 
-        tk.eval(BASE_THEME)
+        tk.eval("""
+        namespace eval ttk::theme::capricorn {
+            # Create style
+            ttk::style theme settings capricorn {
+                # Basic style settings
+                ttk::style configure . \
+                    -background $colors(-bg_main) \
+                    -foreground $colors(-fg_main) \
+                    -font $main_font
+
+                # Scrollbar
+                ttk::style layout Vertical.TScrollbar {
+                    Vertical.Scrollbar.trough -sticky ns -children {
+                        Vertical.Scrollbar.thumb -expand true
+                    }
+                }
+
+                ttk::style configure TScrollbar \
+                    -troughcolor $colors(-bg_main) -troughrelief flat \
+                    -background $colors(-scrollbar) -relief flat
+                
+                # Text 
+                ttk::style configure TText \
+                    -background $colors(-bg_text) \
+                    -foreground $colors(-fg_text) \
+                    -insertbackground $colors(-fg_text) \
+                    -padx 16 -pady 16 \
+                    -borderwidth 1 -relief solid \
+
+                ttk::style configure Title.TText \
+                    -foreground $colors(-fg_title) \
+                    -font $title_font
+
+                # Statusbar
+                ttk::style configure Statusbar.TFrame -background $colors(-bg_status)
+                ttk::style configure Statusbar.TLabel -background $colors(-bg_status)
+            }
+        }
+        """)
 
 class Highlighter():
     def match_pattern(target: tk.Text, pattern: str, tag: str) -> None:
@@ -175,6 +180,7 @@ class View(tk.Tk):
             pass
 
         # style
+        theme.create_style(self.tk)
         theme.load(self.tk)
         ttk.Style().theme_use('capricorn')
 
@@ -438,7 +444,6 @@ class Capricorn():
 
         self.view_config = dict(config['view'])
         self.ws_config = dict(config['workspace'])
-        colors = dict(config['colors'])
 
         self.config_path = config_path
 
@@ -563,6 +568,7 @@ class Capricorn():
 
 #TODO: custom titlebar
 #TODO: style, font selector popup
+#TODO: latex exporter
 if __name__ == '__main__':
     filename = sys.argv[1] if len(sys.argv) > 1 else None
     
