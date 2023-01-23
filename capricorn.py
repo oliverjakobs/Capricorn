@@ -39,8 +39,9 @@ class Theme():
         # set fonts
         tk.eval(f"""
         namespace eval ttk::theme::capricorn {{
-            set main_font {self.fonts['main']}
-            set title_font {self.fonts['title']}
+            set font_main {self.fonts['main']}
+            set font_title {self.fonts['title']}
+            set font_sep {{"Courier New" 16}}
         }}
         """)
 
@@ -52,7 +53,7 @@ class Theme():
                 ttk::style configure . \
                     -background $colors(-bg_main) \
                     -foreground $colors(-fg_main) \
-                    -font $main_font
+                    -font $font_main
 
                 # Scrollbar
                 ttk::style layout Vertical.TScrollbar {
@@ -75,7 +76,12 @@ class Theme():
 
                 ttk::style configure Title.TText \
                     -foreground $colors(-fg_title) \
-                    -font $title_font
+                    -font $font_title
+
+                ttk::style configure Separator.TText \
+                    -justify center \
+                    -spacing1 12 -spacing3 12 \
+                    -font $font_sep
 
                 # Statusbar
                 ttk::style configure Statusbar.TFrame -background $colors(-bg_status)
@@ -97,6 +103,9 @@ class Highlighter():
 
     def highlight_title(target: tk.Text) -> None:
         Highlighter.match_pattern(target, r"#[^\n]*", "title")
+
+    def highlight_separator(target: tk.Text) -> None:
+        Highlighter.match_pattern(target, r"\*\*\*", "separator")
 
 class AboutDialog(tk.Toplevel):
     """Modal about dialog for idle"""
@@ -203,8 +212,9 @@ class View(tk.Tk):
     def _apply_style(self):
         self.text._apply_style("TText")
 
-        # apply style for title tag
+        # apply style for tags
         self.text.tag_config("title", ttk.Style().configure("Title.TText"))
+        self.text.tag_config("separator", ttk.Style().configure("Separator.TText"))
 
     def theme_use(self, name=None):
         if name is None:
@@ -341,7 +351,7 @@ class View(tk.Tk):
 
 
 class Workspace():
-    def __init__(self, config, text):
+    def __init__(self, config: dict, text: ExtendedText) -> None:
         self.text = text
         self.text.configure(width=config['text_width'])
 
@@ -481,6 +491,7 @@ class Capricorn():
     def on_text_change(self, event):
         self.view.update_word_count()
         Highlighter.highlight_title(self.view.text)
+        Highlighter.highlight_separator(self.view.text)
 
         if self.workspace.set_unsaved():
             self.update_title()

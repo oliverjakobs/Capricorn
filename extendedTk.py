@@ -73,6 +73,9 @@ class ExtendedText(ThemedText):
             #print("ignore error:", command, *args)
             pass
 
+    def set_tab_size(self, size):
+        self['tabs'] = self.tk.call("font", "measure", self['font'], size * ' ')
+
 
 ######################################################################
 
