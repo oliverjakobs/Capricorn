@@ -3,7 +3,8 @@ from configparser import ConfigParser
 
 # import tkinter
 import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
+import tkinter.messagebox as mbox
+from tkinter import ttk, filedialog
 
 # import own stuff
 from extendedTk import *
@@ -39,9 +40,9 @@ class Theme():
         # set fonts
         tk.eval(f"""
         namespace eval ttk::theme::capricorn {{
-            set font_main {self.fonts['main']}
-            set font_title {self.fonts['title']}
-            set font_sep {{"Courier New" 16}}
+            set font_main  {{ {self.fonts['main']} }}
+            set font_title {{ {self.fonts['title']} }}
+            set font_sep   {{ {self.fonts['separator']} }}
         }}
         """)
 
@@ -90,23 +91,6 @@ class Theme():
         }
         """)
 
-class Highlighter():
-    def match_pattern(target: tk.Text, pattern: str, tag: str) -> None:
-        # remove tag
-        target.tag_remove(tag, "1.0", tk.END)
-
-        # find and highlight all matches
-        lines = target.get("1.0", tk.END).splitlines()
-        for i, line in enumerate(lines):
-            for match in re.finditer(pattern, line):
-                target.tag_add(tag, f"{i + 1}.{match.start()}", f"{i + 1}.{match.end()}")
-
-    def highlight_title(target: tk.Text) -> None:
-        Highlighter.match_pattern(target, r"#[^\n]*", "title")
-
-    def highlight_separator(target: tk.Text) -> None:
-        Highlighter.match_pattern(target, r"\*\*\*", "separator")
-
 class AboutDialog(tk.Toplevel):
     """Modal about dialog for idle"""
     def __init__(self, parent):
@@ -141,10 +125,10 @@ class AboutDialog(tk.Toplevel):
         header = tk.Label(frame_content, text="Capricorn", fg=fg, bg=bg, font=("Courier New", 24, 'bold'))
         header.grid(row=0, column=0, sticky=tk.W, padx=6, pady=10)
 
-        byline_text = "Distraction free writer app." + (5 * '\n')
+        byline_text = "Distraction free writing app." + (5 * '\n')
         byline = tk.Label(frame_content, text=byline_text, fg=fg, bg=bg)
         byline.grid(row=1, column=0, sticky=tk.W, padx=6, pady=5)
-        github = tk.Label(frame_content, text="https://github.com/oliverjakobs/writer", fg=fg, bg=bg)
+        github = tk.Label(frame_content, text="https://github.com/oliverjakobs/capricorn", fg=fg, bg=bg)
         github.grid(row=2, column=0, sticky=tk.W, padx=6, pady=6)
 
         separator = ttk.Separator(frame_content, orient=tk.HORIZONTAL)
@@ -177,6 +161,9 @@ class AboutDialog(tk.Toplevel):
         self.grab_release()
         self.destroy()
 
+#============================================================================
+# view
+#============================================================================
 class View(tk.Tk):
     def __init__(self, config, theme):
         super().__init__()
@@ -216,12 +203,10 @@ class View(tk.Tk):
         self.text.tag_config("title", ttk.Style().configure("Title.TText"))
         self.text.tag_config("separator", ttk.Style().configure("Separator.TText"))
 
-    def theme_use(self, name=None):
-        if name is None:
-            return ttk.Style().theme_use()
-
-        ttk.Style.theme_use(name)
+    def theme_use(self, themename=None):
+        theme = ttk.Style().theme_use(themename)
         self._apply_style()
+        return theme
 
     def load_menu(self):
         menu = tk.Menu(self)
@@ -349,7 +334,9 @@ class View(tk.Tk):
         config['state'] = 'zoomed' if self.state() == 'zoomed' else 'normal'
         return config
 
-
+#============================================================================
+# workspace / model
+#============================================================================
 class Workspace():
     def __init__(self, config: dict, text: ExtendedText) -> None:
         self.text = text
@@ -370,6 +357,24 @@ class Workspace():
         self.saved = False
         return was_saved
 
+    def _tag_pattern(self, pattern: str, tag: str) -> None:
+        # remove tag
+        self.text.tag_remove(tag, "1.0", tk.END)
+
+        # find and highlight all matches
+        lines = self.text.get("1.0", tk.END).splitlines()
+        for i, line in enumerate(lines):
+            for match in re.finditer(pattern, line):
+                index1 = f"{i + 1}.{match.start()}"
+                index2 = f"{i + 1}.{match.end()}"
+                self.text.tag_add(tag, index1, index2)
+
+    def tag_title(self) -> None:
+        self._tag_pattern(r"#[^\n]*", "title")
+
+    def tag_separator(self) -> None:
+        self._tag_pattern(r"\*\*\*", "separator")
+
     def new_file(self):
         self.text.delete('1.0', tk.END)
         # prevent undoing clearing the text
@@ -389,10 +394,10 @@ class Workspace():
                 # prevent undoing reading the file
                 self.text.edit_reset()
         except UnicodeDecodeError as e:
-            messagebox.showerror("UnicodeDecodeError", f"Could not open {filename}:\n{e}")
+            mbox.showerror("UnicodeDecodeError", f"Could not open {filename}:\n{e}")
             return False
         except FileNotFoundError as e:
-            messagebox.showerror("FileNotFoundError", f"Could not open {filename}:\n{e}")
+            mbox.showerror("FileNotFoundError", f"Could not open {filename}:\n{e}")
             return False
 
         self.saved = True
@@ -404,7 +409,7 @@ class Workspace():
             with open(filename, 'w') as f:
                 f.write(self.text.get('1.0', 'end-1c'))
         except Exception as e:
-            messagebox.showerror("Error", f"Could not save {filename}:\n{e}")
+            mbox.showerror("Error", f"Could not save {filename}:\n{e}")
             return False
 
         self.saved = True
@@ -416,6 +421,9 @@ class Workspace():
         config['text_width'] = self.text.cget('width')
         return config
 
+#============================================================================
+# capricorn / controller
+#============================================================================
 DEFAULT_CONFIG = {
     'view': {
         'width': '1200',
@@ -436,8 +444,9 @@ DEFAULT_CONFIG = {
         'scrollbar': '#6f6f6f'
     },
     'fonts': {
-        'main': '{"Courier New" 10}',
-        'title': '{"Courier New" 24 bold}'
+        'main': '"Courier New" 10',
+        'title': '"Courier New" 24 bold',
+        'separator': '"Courier New" 16'
     }
 }
 
@@ -490,8 +499,8 @@ class Capricorn():
 
     def on_text_change(self, event):
         self.view.update_word_count()
-        Highlighter.highlight_title(self.view.text)
-        Highlighter.highlight_separator(self.view.text)
+        self.workspace.tag_title()
+        self.workspace.tag_separator()
 
         if self.workspace.set_unsaved():
             self.update_title()
@@ -512,7 +521,7 @@ class Capricorn():
         # ask if unsaved changes should be saved
         title = "Save on Close"
         prompt = f"Do you want to save changes to \"{self.workspace.filename}\"?"
-        result = messagebox.askyesnocancel(title=title, message=prompt, default=messagebox.YES)
+        result = mbox.askyesnocancel(title=title, message=prompt, default=mbox.YES)
 
         if result is True:      # yes
             return self.save()

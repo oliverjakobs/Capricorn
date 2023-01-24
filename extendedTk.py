@@ -48,6 +48,7 @@ class ThemedText(tk.Text):
 
         self.configure(config)
 
+
 class ExtendedText(ThemedText):
     def __init__(self, master=None, **kw):
         """A text widget that report on internal widget commands"""
@@ -56,23 +57,60 @@ class ExtendedText(ThemedText):
         # create a proxy for the underlying widget
         self._orig = self._w + "_orig"
         self.tk.call("rename", self._w, self._orig)
-        self.tk.createcommand(self._w, self._proxy)
+        self.tk.createcommand(self._w, self._dispatch_tk_proxy)
 
-    def _proxy(self, command, *args):
+        self._tk_proxies = {}
+        self._register_tk_proxy('mark', self._proxy_mark)
+        self._register_tk_proxy('insert', self._proxy_insert)
+        self._register_tk_proxy('delete', self._proxy_delete)
+
+    #============================================================================
+    # tk functions
+    #============================================================================
+    def _orig_call(self, command, *args):
+        return self.tk.call((self._orig, command) + args)
+
+    def _register_tk_proxy(self, command, function):
+        """ register a proxy function for a given operation """
+        self._tk_proxies[command] = function
+        setattr(self, command, function)
+
+    def _dispatch_tk_proxy(self, command, *args):
+        f = self._tk_proxies.get(command)
         try:
-            result = self.tk.call((self._orig, command) + args)
-
-            if command in ("insert", "delete", "replace"):
-                self.event_generate("<<text-changed>>")
-                self.event_generate("<<insert-moved>>")
-            elif command in ("mark"):
-                self.event_generate("<<insert-moved>>")
-            
-            return result
+            if f: return f(*args)
+            return self._orig_call(command, *args)
         except TclError as e:
             #print("ignore error:", command, *args)
             pass
 
+    #============================================================================
+    # proxy functions
+    #============================================================================
+    def _proxy_mark(self, *args):
+        self._orig_call('mark', *args)
+
+        self.event_generate("<<insert-moved>>")
+
+    def _proxy_insert(self, index, chars, tags=None):
+        self._orig_call('insert', index, chars, tags)
+
+        self.event_generate("<<text-changed>>")
+        self.event_generate("<<insert-moved>>")
+
+    def _proxy_delete(self, index1, index2=None):
+        # Possible Error: paste can cause deletes where index1 is sel.start but text has no selection
+        if index1.startswith("sel.") and not self.tag_ranges("sel"):
+            return
+
+        self._orig_call('delete', index1, index2)
+
+        self.event_generate("<<text-changed>>")
+        self.event_generate("<<insert-moved>>")
+
+    #============================================================================
+    # other functions
+    #============================================================================
     def set_tab_size(self, size):
         self['tabs'] = self.tk.call("font", "measure", self['font'], size * ' ')
 
