@@ -1,425 +1,17 @@
-import os, sys, re
+import sys
 from configparser import ConfigParser
 
 # import tkinter
-import tkinter as tk
+from tkinter import filedialog
 import tkinter.messagebox as mbox
-from tkinter import ttk, filedialog
 
 # import own stuff
-from extendedTk import *
+from view import View
+from workspace import Workspace
 
-class Theme():
-    def __init__(self, colors, fonts) -> None:
-        self.colors = colors
-        self.fonts = fonts
+from dialog import AboutDialog
 
-    def create_style(self, tk):
-        tk.eval("""
-        namespace eval ttk::theme::capricorn {
-            ttk::style theme create capricorn -parent default
-        }
-        """)
-
-    def load(self, tk):
-        # set colors
-        tk.eval(f""" 
-        namespace eval ttk::theme::capricorn {{
-            array set colors {{
-                -fg_main    "{self.colors['fg_main']}"
-                -bg_main    "{self.colors['bg_main']}"
-                -bg_status  "{self.colors['bg_status']}"
-                -fg_text    "{self.colors['fg_text']}"
-                -bg_text    "{self.colors['bg_text']}"
-                -fg_title   "{self.colors['fg_title']}"
-                -scrollbar  "{self.colors['scrollbar']}"
-            }}
-        }}
-        """)
-
-        # set fonts
-        tk.eval(f"""
-        namespace eval ttk::theme::capricorn {{
-            set font_main  {{ {self.fonts['main']} }}
-            set font_title {{ {self.fonts['title']} }}
-            set font_sep   {{ {self.fonts['separator']} }}
-        }}
-        """)
-
-        # apply theme settings
-        tk.eval("""
-        namespace eval ttk::theme::capricorn {
-            ttk::style theme settings capricorn {
-                # Basic style settings
-                ttk::style configure . \
-                    -background $colors(-bg_main) \
-                    -foreground $colors(-fg_main) \
-                    -font $font_main
-
-                # Scrollbar
-                ttk::style layout Vertical.TScrollbar {
-                    Vertical.Scrollbar.trough -sticky ns -children {
-                        Vertical.Scrollbar.thumb -expand true
-                    }
-                }
-
-                ttk::style configure TScrollbar \
-                    -troughcolor $colors(-bg_main) -troughrelief flat \
-                    -background $colors(-scrollbar) -relief flat
-                
-                # Text 
-                ttk::style configure TText \
-                    -background $colors(-bg_text) \
-                    -foreground $colors(-fg_text) \
-                    -insertbackground $colors(-fg_text) \
-                    -padx 16 -pady 16 \
-                    -borderwidth 1 -relief solid \
-
-                ttk::style configure Title.TText \
-                    -foreground $colors(-fg_title) \
-                    -font $font_title
-
-                ttk::style configure Separator.TText \
-                    -justify center \
-                    -spacing1 12 -spacing3 12 \
-                    -font $font_sep
-
-                # Statusbar
-                ttk::style configure Statusbar.TFrame -background $colors(-bg_status)
-                ttk::style configure Statusbar.TLabel -background $colors(-bg_status)
-            }
-        }
-        """)
-
-class AboutDialog(tk.Toplevel):
-    """Modal about dialog for idle"""
-    def __init__(self, parent):
-        """Create popup, do not return until tk widget destroyed."""
-        super().__init__(parent)
-        self.configure(borderwidth=5)
-        # place dialog below parent if running htest
-        self.geometry(f"+{parent.winfo_rootx()+30}+{parent.winfo_rooty()+30}")
-
-        self.create_widgets()
-        self.resizable(height=False, width=False)
-        self.title('About')
-        self.transient(parent)
-        self.grab_set()
-        
-        self.button_ok.focus_set()
-        self.bind('<Return>', self.ok)  # dismiss dialog
-        self.bind('<Escape>', self.ok)  # dismiss dialog
-
-        self.protocol("WM_DELETE_WINDOW", self.ok)
-
-        self.deiconify()
-        self.wait_window()
-
-    def create_widgets(self):
-        bg = "#bbbbbb"
-        fg = "#000000"
-
-        # content
-        frame_content = tk.Frame(self, borderwidth=1, relief=tk.SOLID, bg=bg)
-
-        header = tk.Label(frame_content, text="Capricorn", fg=fg, bg=bg, font=("Courier New", 24, 'bold'))
-        header.grid(row=0, column=0, sticky=tk.W, padx=6, pady=10)
-
-        byline_text = "Distraction free writing app." + (5 * '\n')
-        byline = tk.Label(frame_content, text=byline_text, fg=fg, bg=bg)
-        byline.grid(row=1, column=0, sticky=tk.W, padx=6, pady=5)
-        github = tk.Label(frame_content, text="https://github.com/oliverjakobs/capricorn", fg=fg, bg=bg)
-        github.grid(row=2, column=0, sticky=tk.W, padx=6, pady=6)
-
-        separator = ttk.Separator(frame_content, orient=tk.HORIZONTAL)
-        separator.grid(row=3, column=0, sticky=tk.EW, padx=5, pady=5)
-
-        # buttons
-        frame_buttons = tk.Frame(frame_content, bg=bg)
-
-        self.btn_readme = tk.Button(frame_buttons, text="README", width=8, highlightbackground=bg)
-        self.btn_readme.pack(side=tk.LEFT, padx=10, pady=10)
-        self.btn_copyright = tk.Button(frame_buttons, text="Copyright", width=8, highlightbackground=bg)
-        self.btn_copyright.pack(side=tk.LEFT, padx=10, pady=10)
-        self.btn_credits = tk.Button(frame_buttons, text="Credits", width=8, highlightbackground=bg)
-        self.btn_credits.pack(side=tk.LEFT, padx=10, pady=10)
-
-        frame_buttons.grid(row=4, column=0, sticky=tk.NSEW)
-
-        # footer
-        frame_footer = tk.Frame(self)
-
-        self.button_ok = tk.Button(frame_footer, text="Close", padx=6, command=self.ok)
-        self.button_ok.pack(padx=5, pady=5)
-
-        frame_content.pack(side=tk.TOP, expand=True, fill=tk.BOTH)
-        frame_footer.pack(side=tk.BOTTOM, fill=tk.X)
-
-
-    def ok(self, event=None):
-        "Dismiss help_about dialog."
-        self.grab_release()
-        self.destroy()
-
-#============================================================================
-# view
-#============================================================================
-class View(tk.Tk):
-    def __init__(self, config, theme):
-        super().__init__()
-
-        self.geometry(f"{config['width']}x{config['height']}")
-        self.state(config['state'])
-
-        # icon
-        try:
-            self.iconbitmap('capricorn.ico')
-        except:
-            pass
-
-        # style
-        theme.create_style(self.tk)
-        theme.load(self.tk)
-        ttk.Style().theme_use('capricorn')
-
-        # content
-        self.load_workspace().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
-        self.load_statusbar().pack(side=tk.BOTTOM, fill=tk.X)
-
-        self.load_menu()
-
-        # bind events (binding to text widget to override text specific events)
-        self.text.bind('<Control-n>', self.on_new)
-        self.text.bind('<Control-o>', self.on_open)
-        self.text.bind('<Control-s>', self.on_save)
-        self.text.bind('<Control-S>', self.on_save_as)
-
-        self._apply_style()
-
-    def _apply_style(self):
-        self.text._apply_style("TText")
-
-        # apply style for tags
-        self.text.tag_config("title", ttk.Style().configure("Title.TText"))
-        self.text.tag_config("separator", ttk.Style().configure("Separator.TText"))
-
-    def theme_use(self, themename=None):
-        theme = ttk.Style().theme_use(themename)
-        self._apply_style()
-        return theme
-
-    def load_menu(self):
-        menu = tk.Menu(self)
-
-        # file
-        menu_file = tk.Menu(menu, tearoff=0)
-        menu_file.add_command(label="New File", accelerator="Ctrl+N", command=self.on_new)
-        menu_file.add_command(label="Open File", accelerator="Ctrl+O", command=self.on_open)
-        menu_file.add_separator()
-        menu_file.add_command(label="Save", accelerator="Ctrl+S", command=self.on_save)
-        menu_file.add_command(label="Save As", accelerator="Ctrl+Shift+S", command=self.on_save_as)
-        menu_file.add_separator()
-        menu_file.add_command(label="Exit", command=lambda e: self.event_generate('<<wnd-close>>'))
-
-        # edit
-        menu_edit = tk.Menu(menu, tearoff=0)
-        menu_edit.add_command(label="Undo", accelerator="Ctrl+Z", command=self.text.edit_undo)
-        menu_edit.add_command(label="Redo", accelerator="Ctrl+Y", command=self.text.edit_redo)
-        menu_edit.add_separator()
-        menu_edit.add_command(label="Cut", accelerator="Ctrl+X")
-        menu_edit.add_command(label="Copy", accelerator="Ctrl+C")
-        menu_edit.add_command(label="Paste", accelerator="Ctrl+V")
-        menu_edit.add_separator()
-        menu_edit.add_command(label="Find", accelerator="Ctrl+F")
-        menu_edit.add_command(label="Replace", accelerator="Ctrl+H")
-
-        # help
-        menu_help = tk.Menu(menu, tearoff=0)
-        menu_help.add_command(label="About", command=self.about_dialog)
-
-        menu.add_cascade(label="File", menu=menu_file)
-        menu.add_cascade(label="Edit", menu=menu_edit)
-        menu.add_cascade(label="Help", menu=menu_help)
-        self.config(menu=menu)
-
-    def on_new(self, event=None):
-        self.event_generate('<<new>>')
-        return 'break'
-
-    def on_open(self, event=None):
-        self.event_generate('<<open>>')
-        return 'break'
-
-    def on_save(self, event=None):
-        self.event_generate('<<save>>')
-        return 'break'
-
-    def on_save_as(self, event=None):
-        self.event_generate('<<save-as>>')
-        return 'break'
-
-    def about_dialog(self, event=None):
-        AboutDialog(self)
-        return 'break'
-
-    def load_statusbar(self):
-        bar = ttk.Frame(self, style='Statusbar.TFrame')
-
-        self.status = FadingLabel(bar, text="", style='Statusbar.TLabel')
-
-        self.word_count = tk.StringVar(value="Wordcount: -")
-        self.insert_pos = tk.StringVar(value="Ln -, Col -")
-
-        frame = ttk.Frame(bar, style='Statusbar.TFrame')
-        label_word_count = ttk.Label(frame, textvariable=self.word_count, style='Statusbar.TLabel')
-        label_insert_pos = ttk.Label(frame, textvariable=self.insert_pos, style='Statusbar.TLabel')
-
-        label_word_count.pack(side=tk.LEFT, padx=8)
-        label_insert_pos.pack(side=tk.LEFT, padx=8)
-
-        # grid
-        bar.columnconfigure(1, weight=1)
-
-        self.status.grid(row=0, column=0, sticky=tk.W, padx=8, pady=2)
-        frame.grid(row=0, column=1, sticky=tk.E, padx=32, pady=2)
-
-        return bar
-
-    def load_workspace(self,):
-        workspace = ttk.Frame(self)
-
-        workspace.columnconfigure(0, weight=1)
-        workspace.rowconfigure(0, weight=1)
-
-        # text frame
-        frame = ttk.Frame(workspace)
-        self.text = ExtendedText(frame, wrap=tk.WORD, undo=True)
-        self.text.pack(side=tk.TOP, fill=tk.Y, expand=True, pady=8)
-
-        # scrollbar
-        scroll = AutoScrollbar(workspace, orient=tk.VERTICAL)
-
-        # grid
-        frame.grid(row=0, column=0, sticky=tk.NSEW)
-        scroll.grid(row=0, column=1, sticky=tk.NS)
-
-        # scroll commands
-        scroll['command'] = lambda *args: self.text.yview(*args)
-        self.text['yscrollcommand'] = lambda first, last: scroll.set(first, last)
-
-        # focus on text widget
-        self.text.focus_set()
-
-        return workspace
-
-    def write_status(self, msg):
-        self.status.write(msg)
-
-    def error_status(self, msg):
-        self.status.write("[Error]: " + msg)
-
-    def update_insert_pos(self):
-        ln, col = self.text.index('insert').split('.')
-        self.insert_pos.set(f"Ln {ln}, Col {col}")
-
-    def update_word_count(self):
-        count = len(re.findall('\w+', self.text.get('1.0', 'end-1c')))
-        self.word_count.set(f"Wordcount: {count}")
-
-    def get_config(self, config):
-        if self.state() != 'zoomed':
-            config['width'] = self.winfo_width()
-            config['height'] = self.winfo_height()
-
-        config['state'] = 'zoomed' if self.state() == 'zoomed' else 'normal'
-        return config
-
-#============================================================================
-# workspace / model
-#============================================================================
-class Workspace():
-    def __init__(self, config: dict, text: ExtendedText) -> None:
-        self.text = text
-        self.text.configure(width=config['text_width'])
-
-        self.saved = True
-        self.set_filename(None)
-
-    def set_filename(self, filename):
-        self.path = os.path.abspath(filename) if filename else None
-        self.filename = os.path.basename(filename) if filename else "untitled"
-
-    def get_title(self):
-        return ("" if self.saved else "*") + self.filename
-
-    def set_unsaved(self):
-        was_saved = self.saved
-        self.saved = False
-        return was_saved
-
-    def _tag_pattern(self, pattern: str, tag: str) -> None:
-        # remove tag
-        self.text.tag_remove(tag, "1.0", tk.END)
-
-        # find and highlight all matches
-        lines = self.text.get("1.0", tk.END).splitlines()
-        for i, line in enumerate(lines):
-            for match in re.finditer(pattern, line):
-                index1 = f"{i + 1}.{match.start()}"
-                index2 = f"{i + 1}.{match.end()}"
-                self.text.tag_add(tag, index1, index2)
-
-    def tag_title(self) -> None:
-        self._tag_pattern(r"#[^\n]*", "title")
-
-    def tag_separator(self) -> None:
-        self._tag_pattern(r"\*\*\*", "separator")
-
-    def new_file(self):
-        self.text.delete('1.0', tk.END)
-        # prevent undoing clearing the text
-        self.text.edit_reset()
-
-        self.saved = True
-        self.set_filename(filename)
-
-    def read_file(self, filename) -> bool:
-        try:
-            with open(filename, 'r') as f:
-                text = f.read()
-                # clear text
-                self.text.delete('1.0', tk.END)
-                # insert new text
-                self.text.insert('1.0', text)
-                # prevent undoing reading the file
-                self.text.edit_reset()
-        except UnicodeDecodeError as e:
-            mbox.showerror("UnicodeDecodeError", f"Could not open {filename}:\n{e}")
-            return False
-        except FileNotFoundError as e:
-            mbox.showerror("FileNotFoundError", f"Could not open {filename}:\n{e}")
-            return False
-
-        self.saved = True
-        self.set_filename(filename)
-        return True
-
-    def write_file(self, filename) -> bool:
-        try:
-            with open(filename, 'w') as f:
-                f.write(self.text.get('1.0', 'end-1c'))
-        except Exception as e:
-            mbox.showerror("Error", f"Could not save {filename}:\n{e}")
-            return False
-
-        self.saved = True
-        self.set_filename(filename)
-        return True
-    
-    def get_config(self, config):
-        config['last_file'] = self.path or ""
-        config['text_width'] = self.text.cget('width')
-        return config
+from lib.extendedTk import *
 
 #============================================================================
 # capricorn / controller
@@ -465,15 +57,16 @@ class Capricorn():
 
         self.view_config = dict(config['view'])
         self.ws_config = dict(config['workspace'])
+        self.colors = dict(config['colors'])
+        self.fonts = dict(config['fonts'])
 
         self.config_path = config_path
 
         #view
-        self.theme = Theme(dict(config['colors']), dict(config['fonts']))
-        self.view = View(self.view_config, self.theme)
+        self.view = View(self.view_config, self.colors, self.fonts)
 
         # workspace
-        self.workspace = Workspace(self.ws_config, self.view.text)
+        self.workspace = Workspace(self.ws_config, self.view)
 
         # bind events
         self.view.bind("<<text-changed>>", self.on_text_change)
@@ -484,6 +77,9 @@ class Capricorn():
         self.view.bind('<<save>>', self.save)
         self.view.bind('<<save-as>>', self.save_as)
         self.view.bind('<<wnd-close>>', self.exit)
+
+        self.view.bind('<<show-about>>', self.show_about)
+        self.view.bind('<<show-settings>>', self.show_settings)
 
         self.view.protocol("WM_DELETE_WINDOW", self.exit)
 
@@ -498,15 +94,23 @@ class Capricorn():
         self.view.mainloop()
 
     def on_text_change(self, event):
-        self.view.update_word_count()
-        self.workspace.tag_title()
-        self.workspace.tag_separator()
+        self.workspace.update_word_count()
+        self.workspace.tag_pattern(r"#[^\n]*", "title")
+        self.workspace.tag_pattern(r"\*\*\*", "separator")
 
         if self.workspace.set_unsaved():
             self.update_title()
 
     def on_insert_move(self, event):
-        self.view.update_insert_pos()
+        self.workspace.update_insert_pos()
+
+    def show_about(self, event):
+        AboutDialog(event.widget)
+        return 'break'
+
+    def show_settings(self, event):
+        print("Settings")
+        return 'break'
 
     def update_title(self):
         self.view.title(self.workspace.get_title())
@@ -572,17 +176,20 @@ class Capricorn():
         self.update_title()
         return result
 
-    def exit(self, *args):
-
-        # save config
+    def save_config(self):
         config = ConfigParser()
         config['view'] = self.view.get_config(self.view_config)
         config['workspace'] = self.workspace.get_config(self.ws_config)
-        config['colors'] = self.theme.colors
-        config['fonts'] = self.theme.fonts
+        config['colors'] = self.colors
+        config['fonts'] = self.fonts
 
         with open(self.config_path, 'w') as configfile:
             config.write(configfile)
+
+
+    def exit(self, *args):
+        # save config
+        self.save_config()
 
         # save and close
         if self.check_saved():
@@ -590,6 +197,7 @@ class Capricorn():
 
 #TODO: style, font selector popup
 #TODO: latex exporter
+#TODO: fonts/colors tcl-array loading
 if __name__ == '__main__':
     filename = sys.argv[1] if len(sys.argv) > 1 else None
     

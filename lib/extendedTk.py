@@ -29,6 +29,33 @@ class FadingLabel(ttk.Label):
         self["text"] = msg
         self.after(self._delay, lambda: self.config(text=self._idle_text))
 
+class DigitEntry(ttk.Entry):
+    def __init__(self, master=None, **kw):
+        self.limit = kw.pop('limit', kw.get('width', None))
+
+        super().__init__(master=master, **kw)
+
+        self['validate'] = 'key'
+        v_cmd = (self.register(self._on_validate), '%d', '%P', '%s')
+        self['validatecommand'] = v_cmd
+
+    # valid percent substitutions (from the Tk entry man page)
+    # %d = Type of action (1=insert, 0=delete, -1 for others)
+    # %i = index of char string to be inserted/deleted, or -1
+    # %P = value of the entry if the edit is allowed
+    # %s = value of entry prior to editing
+    # %S = the text string being inserted or deleted, if any
+    # %v = the type of validation that is currently set
+    # %V = the type of validation that triggered the callback
+    #      (key, focusin, focusout, forced)
+    # %W = the tk name of the widget
+    def _on_validate(self, d, P, s):
+
+        if d == '1': #insert
+            if self.limit and len(s) >= self.limit:
+                return False
+            return P.isdigit()
+        return True
 
 class ThemedText(tk.Text):
     """ Text widget that can be styled """
@@ -41,9 +68,9 @@ class ThemedText(tk.Text):
     def _apply_style(self, widget_name):
         style = ttk.Style()
 
-        style_config = style.configure('.')
+        style_config = style.configure('.') or {}
 
-        config = { k: style_config[k] for k in self.configure().keys() if k in style_config }
+        config = { k: style_config[k] for k in self.configure().keys() if k in style_config } 
         config |= (style.configure(widget_name) or {})
 
         self.configure(config)
