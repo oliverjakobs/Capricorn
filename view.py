@@ -53,17 +53,11 @@ namespace eval ttk::theme::capricorn {
 # view
 #============================================================================
 class View(tk.Tk):
-    def __init__(self, config, colors, fonts):
+    def __init__(self):
         super().__init__()
-
-        self.geometry(f"{config['width']}x{config['height']}")
-        self.state(config['state'])
-
         # icon
-        try:
-            self.iconbitmap('capricorn.ico')
-        except:
-            pass
+        try:    self.iconbitmap('capricorn.ico')
+        except: pass
 
         # content
         self.load_workspace().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
@@ -78,7 +72,6 @@ class View(tk.Tk):
         }
         """)
         ttk.Style().theme_use('capricorn')
-        self.load_theme(colors, fonts)
 
         # bind events (binding to text widget to override text specific events)
         self.text.bind('<Control-n>', self.on_new)
@@ -92,6 +85,12 @@ class View(tk.Tk):
         # apply style for tags
         self.text.tag_config("title", ttk.Style().configure("Title.TText"))
         self.text.tag_config("separator", ttk.Style().configure("Separator.TText"))
+
+    def load_config(self, config, colors, fonts):
+        self.geometry(f"{config['width']}x{config['height']}")
+        self.state(config['state'])
+
+        self.load_theme(colors, fonts)
 
     def load_theme(self, colors, fonts):
         # set colors
@@ -230,10 +229,5 @@ class View(tk.Tk):
     def error_status(self, msg):
         self.status.write("[Error]: " + msg)
 
-    def get_config(self, config):
-        if self.state() != 'zoomed':
-            config['width'] = self.winfo_width()
-            config['height'] = self.winfo_height()
-
-        config['state'] = 'zoomed' if self.state() == 'zoomed' else 'normal'
-        return config
+    def zoomed(self):
+        return self.state() == 'zoomed'

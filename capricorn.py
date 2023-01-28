@@ -9,7 +9,7 @@ import tkinter.messagebox as mbox
 from view import View
 from workspace import Workspace
 
-from dialog import AboutDialog
+from dialog import AboutDialog, ConfigDialog
 
 from lib.extendedTk import *
 
@@ -50,23 +50,25 @@ FILEDIALOG_OPTIONS = {
 class Capricorn():
     def __init__(self, config_path, filename):
 
+        # create view and workspace
+        self.view = View()
+        self.workspace = Workspace(self.view)
+
         # parse config file
         config = ConfigParser()
         config.read_dict(DEFAULT_CONFIG)
         config.read(config_path)
 
-        self.view_config = dict(config['view'])
-        self.ws_config = dict(config['workspace'])
-        self.colors = dict(config['colors'])
-        self.fonts = dict(config['fonts'])
-
         self.config_path = config_path
 
-        #view
-        self.view = View(self.view_config, self.colors, self.fonts)
-
-        # workspace
-        self.workspace = Workspace(self.ws_config, self.view)
+        # apply config
+        self.config = {}
+        self.load_config({
+            'view':      dict(config['view']),
+            'workspace': dict(config['workspace']),
+            'colors':    dict(config['colors']),
+            'fonts':     dict(config['fonts']),
+        })
 
         # bind events
         self.view.bind("<<text-changed>>", self.on_text_change)
@@ -84,11 +86,17 @@ class Capricorn():
         self.view.protocol("WM_DELETE_WINDOW", self.exit)
 
         # read file
-        path = filename or self.ws_config['last_file']
+        path = filename or self.config['workspace']['last_file']
         if path:
             self.workspace.read_file(path)
 
         self.update_title()
+
+    def load_config(self, config):
+        self.config |= config
+
+        self.view.load_config(self.config['view'], self.config['colors'], self.config['fonts'])
+        self.workspace.load_config(self.config['workspace'])
 
     def run(self):
         self.view.mainloop()
@@ -109,7 +117,7 @@ class Capricorn():
         return 'break'
 
     def show_settings(self, event):
-        print("Settings")
+        ConfigDialog(event.widget, None, self.load_config)
         return 'break'
 
     def update_title(self):
@@ -177,25 +185,32 @@ class Capricorn():
         return result
 
     def save_config(self):
+        # update view config
+        if not self.view.zoomed():
+            self.config['view']['width'] = self.view.winfo_width()
+            self.config['view']['height'] = self.view.winfo_height()
+
+        self.config['view']['state'] = 'zoomed' if self.view.zoomed() else 'normal'
+
+        #update workspace config
+        self.config['workspace']['last_file'] = self.workspace.path or ''
+
+        # write to config file
         config = ConfigParser()
-        config['view'] = self.view.get_config(self.view_config)
-        config['workspace'] = self.workspace.get_config(self.ws_config)
-        config['colors'] = self.colors
-        config['fonts'] = self.fonts
+        config.read_dict(self.config)
 
         with open(self.config_path, 'w') as configfile:
             config.write(configfile)
-
 
     def exit(self, *args):
         # save config
         self.save_config()
 
-        # save and close
+        # aks to save and close
         if self.check_saved():
             self.view.destroy()
 
-#TODO: style, font selector popup
+#TODO: style settings dialog
 #TODO: latex exporter
 #TODO: fonts/colors tcl-array loading
 if __name__ == '__main__':

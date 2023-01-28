@@ -10,9 +10,8 @@ from view import View
 # workspace / model
 #============================================================================
 class Workspace():
-    def __init__(self, config: dict, view: View) -> None:
+    def __init__(self, view: View) -> None:
         self.text = view.text
-        self.text.configure(width=config['text_width'])
 
         self.word_count = tk.StringVar(value="Wordcount: -")
         self.insert_pos = tk.StringVar(value="Ln -, Col -")
@@ -23,12 +22,15 @@ class Workspace():
         self.saved = True
         self.set_filename(None)
 
+    def load_config(self, config: dict) -> None:
+        self.text.configure(width=config['text_width'])
+
     def set_filename(self, filename):
         self.path = os.path.abspath(filename) if filename else None
         self.filename = os.path.basename(filename) if filename else "untitled"
 
     def get_title(self):
-        return ("" if self.saved else "*") + self.filename
+        return ('' if self.saved else '*') + self.filename
 
     def set_unsaved(self):
         was_saved = self.saved
@@ -73,11 +75,8 @@ class Workspace():
                 self.text.insert('1.0', text)
                 # prevent undoing reading the file
                 self.text.edit_reset()
-        except UnicodeDecodeError as e:
-            mbox.showerror("UnicodeDecodeError", f"Could not open {filename}:\n{e}")
-            return False
-        except FileNotFoundError as e:
-            mbox.showerror("FileNotFoundError", f"Could not open {filename}:\n{e}")
+        except Exception as e:
+            mbox.showerror(type(e).__name__, f"Could not open {filename}:\n{e}")
             return False
 
         self.saved = True
@@ -95,8 +94,3 @@ class Workspace():
         self.saved = True
         self.set_filename(filename)
         return True
-    
-    def get_config(self, config):
-        config['last_file'] = self.path or ""
-        config['text_width'] = self.text.cget('width')
-        return config
