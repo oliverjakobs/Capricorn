@@ -24,8 +24,8 @@ namespace eval ttk::theme::capricorn {
         ttk::style configure TScrollbar \
             -troughcolor $colors(-bg_main) -troughrelief flat \
             -background $colors(-scrollbar) -relief flat
-        
-        # Text 
+
+        # Text
         ttk::style configure TText \
             -background $colors(-bg_text) \
             -foreground $colors(-fg_text) \
@@ -86,38 +86,18 @@ class View(tk.Tk):
         self.text.tag_config("title", ttk.Style().configure("Title.TText"))
         self.text.tag_config("separator", ttk.Style().configure("Separator.TText"))
 
-    def load_config(self, config, colors, fonts):
+    def load_config(self, config):
         self.geometry(f"{config['width']}x{config['height']}")
         self.state(config['state'])
 
-        self.load_theme(colors, fonts)
-
     def load_theme(self, colors, fonts):
         # set colors
-        self.tk.eval(f""" 
-        namespace eval ttk::theme::capricorn {{
-            array set colors {{
-                -fg_main    "{colors['fg_main']}"
-                -bg_main    "{colors['bg_main']}"
-                -bg_status  "{colors['bg_status']}"
-                -fg_text    "{colors['fg_text']}"
-                -bg_text    "{colors['bg_text']}"
-                -fg_title   "{colors['fg_title']}"
-                -scrollbar  "{colors['scrollbar']}"
-            }}
-        }}
-        """)
+        color_str = " ".join(['-%s "%s"' % (c, colors[c]) for c in colors])
+        self.tk.eval("namespace eval ttk::theme::capricorn {array set colors {%s}}" % color_str)
 
         # set fonts
-        self.tk.eval(f"""
-        namespace eval ttk::theme::capricorn {{
-            array set fonts {{
-                -main       {{ {fonts['main']} }}
-                -title      {{ {fonts['title']} }}
-                -separator  {{ {fonts['separator']} }}
-            }}
-        }}
-        """)
+        font_str = " ".join(['-%s {%s}' % (f, fonts[f]) for f in fonts])
+        self.tk.eval("namespace eval ttk::theme::capricorn {array set fonts {%s}}" % font_str)
 
         # apply theme settings
         self.tk.eval(THEME_SETTINGS)

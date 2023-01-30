@@ -85,6 +85,9 @@ class Capricorn():
 
         self.view.protocol("WM_DELETE_WINDOW", self.exit)
 
+        self.pattern_title = "#.*"
+        self.pattern_sep = "\*\*\*"
+
         # read file
         path = filename or self.config['workspace']['last_file']
         if path:
@@ -95,7 +98,8 @@ class Capricorn():
     def load_config(self, config):
         self.config |= config
 
-        self.view.load_config(self.config['view'], self.config['colors'], self.config['fonts'])
+        self.view.load_config(self.config['view'])
+        self.view.load_theme(self.config['colors'], self.config['fonts'])
         self.workspace.load_config(self.config['workspace'])
 
     def run(self):
@@ -103,8 +107,8 @@ class Capricorn():
 
     def on_text_change(self, event):
         self.workspace.update_word_count()
-        self.workspace.tag_pattern(r"#[^\n]*", "title")
-        self.workspace.tag_pattern(r"\*\*\*", "separator")
+        self.workspace.tag_pattern(self.pattern_title, "title")
+        self.workspace.tag_pattern(self.pattern_sep, "separator")
 
         if self.workspace.set_unsaved():
             self.update_title()
@@ -212,7 +216,6 @@ class Capricorn():
 
 #TODO: style settings dialog
 #TODO: latex exporter
-#TODO: fonts/colors tcl-array loading
 if __name__ == '__main__':
     filename = sys.argv[1] if len(sys.argv) > 1 else None
     

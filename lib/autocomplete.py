@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # encoding: utf-8
 """
+original name: tkentrycomplete.py
+
 A tkinter widget that features autocompletion.
 
 Created by Mitja Martini on 2008-11-29.
