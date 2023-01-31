@@ -29,6 +29,28 @@ class FadingLabel(ttk.Label):
         self["text"] = msg
         self.after(self._delay, lambda: self.config(text=self._idle_text))
 
+class FixedEntry(ttk.Entry):
+    def __init__(self, master, **kw):
+        self.limit = kw.get('width', None)
+
+        super().__init__(master=master, **kw)
+
+        self['validate'] = 'key'
+        v_cmd = (self.register(self._on_validate), '%d', '%P', '%s')
+        self['validatecommand'] = v_cmd
+
+    def _on_validate(self, d, P, s):
+
+        if d == '1': #insert
+            if self.limit and len(s) >= self.limit:
+                return False
+        return True
+
+#TODO: pass through entry functions
+class ColorEntry(ttk.Frame):
+    def __init__(self, master=None, **kw):
+        ...
+
 class DigitEntry(ttk.Entry):
     def __init__(self, master=None, **kw):
         self.limit = kw.pop('limit', kw.get('width', None))

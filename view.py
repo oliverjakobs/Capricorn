@@ -11,8 +11,20 @@ namespace eval ttk::theme::capricorn {
         # Basic style settings
         ttk::style configure . \
             -background $colors(-bg_main) \
-            -foreground $colors(-fg_main) \
+            -foreground $colors(-fg_main)
+
+        # Entry
+        ttk::style configure TEntry \
+            -fieldbackground $colors(-bg_main) \
             -font $fonts(-main)
+
+        option add *TEntry.font TkFixedFont
+
+        ttk::style configure TCombobox \
+            -fieldbackground $colors(-bg_main)
+
+        option add *TCombobox*Listbox.background $colors(-bg_main)
+        option add *TCombobox*Listbox.foreground $colors(-fg_main)
 
         # Scrollbar
         ttk::style layout Vertical.TScrollbar {
@@ -32,6 +44,7 @@ namespace eval ttk::theme::capricorn {
             -insertbackground $colors(-fg_text) \
             -padx 16 -pady 16 \
             -borderwidth 1 -relief solid \
+            -font $fonts(-main)
 
         ttk::style configure Title.TText \
             -foreground $colors(-fg_title) \
@@ -44,7 +57,26 @@ namespace eval ttk::theme::capricorn {
 
         # Statusbar
         ttk::style configure Statusbar.TFrame -background $colors(-bg_status)
-        ttk::style configure Statusbar.TLabel -background $colors(-bg_status)
+        ttk::style configure Statusbar.TLabel -background $colors(-bg_status) -font $fonts(-main)
+
+        # Dialog
+        ttk::style configure Buttonframe.TFrame -background $colors(-bg_status) -padding {6}
+
+        ttk::style configure TButton \
+            -padding {8 4 8 4} -anchor center \
+            -background $colors(-bg_main) 
+
+        ttk::style configure TNotebook -tabmargins {0 2 0 0} \
+            -background $colors(-bg_status) \
+            -borderwidth 1
+        ttk::style configure TNotebook.Tab -padding {4 6 4 0} -expand {0 0 2} 
+        ttk::style map TNotebook.Tab \
+            -expand     [list selected {1 2 4 2}] \
+            -background [list !selected $colors(-bg_status)]
+
+        ttk::style configure TLabelframe \
+            -borderwidth 1 -relief solid
+
     }
 }
 """

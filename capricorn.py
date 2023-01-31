@@ -66,6 +66,7 @@ class Capricorn():
         self.load_config({
             'view':      dict(config['view']),
             'workspace': dict(config['workspace']),
+            'patterns':  dict(config['patterns']),
             'colors':    dict(config['colors']),
             'fonts':     dict(config['fonts']),
         })
@@ -84,9 +85,6 @@ class Capricorn():
         self.view.bind('<<show-settings>>', self.show_settings)
 
         self.view.protocol("WM_DELETE_WINDOW", self.exit)
-
-        self.pattern_title = "#.*"
-        self.pattern_sep = "\*\*\*"
 
         # read file
         path = filename or self.config['workspace']['last_file']
@@ -107,8 +105,10 @@ class Capricorn():
 
     def on_text_change(self, event):
         self.workspace.update_word_count()
-        self.workspace.tag_pattern(self.pattern_title, "title")
-        self.workspace.tag_pattern(self.pattern_sep, "separator")
+
+        # tag all patterns
+        for tag, pattern in self.config['patterns'].items():
+            self.workspace.tag_pattern(pattern, tag)
 
         if self.workspace.set_unsaved():
             self.update_title()
@@ -214,11 +214,13 @@ class Capricorn():
         if self.check_saved():
             self.view.destroy()
 
-#TODO: style settings dialog
+#TODO: color picker entry
 #TODO: latex exporter
 if __name__ == '__main__':
     filename = sys.argv[1] if len(sys.argv) > 1 else None
-    
+    #ConfigDialog(tk.Tk(), None, lambda e: e).mainloop()
+
     app = Capricorn("config.ini", filename)
-    app.run()
+    ConfigDialog(app.view, None, lambda e: e).mainloop()
+    #app.run()
 

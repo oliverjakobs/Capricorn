@@ -2,36 +2,41 @@ import tkinter as tk
 import tkinter.font as tkfont
 from tkinter import ttk
 
-from lib.extendedTk import DigitEntry
+from lib.extendedTk import DigitEntry, FixedEntry
 from lib.autocomplete import AutocompleteCombobox
 
+#============================================================================
+# about
+#============================================================================
 class AboutDialog(tk.Toplevel):
-    """Modal about dialog for idle"""
-    def __init__(self, parent):
+    def __init__(self, parent, title=None):
         """Create popup, do not return until tk widget destroyed."""
         super().__init__(parent)
-        self.configure(borderwidth=5)
-        # place dialog below parent if running htest
-        self.geometry(f"+{parent.winfo_rootx()+30}+{parent.winfo_rooty()+30}")
+
+        self.title(title or 'About')
+        x = parent.winfo_rootx() + 30
+        y = parent.winfo_rooty() + 30
+        self.geometry(f"+{x}+{y}")
 
         self.create_widgets()
-        self.resizable(height=False, width=False)
-        self.title('About')
+        self.resizable(height=tk.FALSE, width=tk.FALSE)
         self.transient(parent)
-        self.grab_set()
-        
+
         self.button_ok.focus_set()
         self.bind('<Return>', self.ok)  # dismiss dialog
         self.bind('<Escape>', self.ok)  # dismiss dialog
 
         self.protocol("WM_DELETE_WINDOW", self.ok)
 
-        self.deiconify()
+        self.grab_set()
+        self.wm_deiconify()
         self.wait_window()
 
     def create_widgets(self):
         bg = "#bbbbbb"
         fg = "#000000"
+
+        self.configure(borderwidth=5)
 
         # content
         frame_content = tk.Frame(self, borderwidth=1, relief=tk.SOLID, bg=bg)
@@ -76,14 +81,13 @@ class AboutDialog(tk.Toplevel):
         self.destroy()
 
 
-
+#============================================================================
+# config
+#============================================================================
 class ConfigDialog(tk.Toplevel):
-    """Config dialog. """
-
     def __init__(self, parent, title, apply):
-        """Show the tabbed dialog for user configuration. """
+        """Create dialog, do not return until tk widget destroyed."""
         super().__init__(parent)
-        self.withdraw()
 
         self.apply_cb = apply
 
@@ -91,10 +95,11 @@ class ConfigDialog(tk.Toplevel):
         x = parent.winfo_rootx() + 20
         y = parent.winfo_rooty() + 30
         self.geometry(f'+{x}+{y}')
-        
+
         self.create_widgets()
         self.resizable(height=tk.FALSE, width=tk.FALSE)
         self.transient(parent)
+
         self.protocol("WM_DELETE_WINDOW", self.cancel)
 
         self.grab_set()
@@ -103,7 +108,7 @@ class ConfigDialog(tk.Toplevel):
 
     def create_widgets(self):
         # notebook
-        self.note = ttk.Notebook(self, padding=(4, 6, 4, 0))
+        self.note = ttk.Notebook(self)
         self.note.enable_traversal()
 
         self.tabs = {
@@ -117,18 +122,23 @@ class ConfigDialog(tk.Toplevel):
         self.note.pack(side=tk.TOP, expand=tk.TRUE, fill=tk.BOTH)
         
         # buttons
-        frame_btns = ttk.Frame(self)
+        frame_btns = ttk.Frame(self, style='Buttonframe.TFrame', padding=6)
 
-        ttk.Button(frame_btns, text='Ok', command=self.ok, takefocus=False).pack(side=tk.LEFT, padx=5)
-        ttk.Button(frame_btns, text='Apply', command=self.apply, takefocus=False).pack(side=tk.LEFT, padx=5)
-        ttk.Button(frame_btns, text='Cancel', command=self.cancel, takefocus=False).pack(side=tk.LEFT, padx=5)
+        btn_args = {
+            'takefocus': tk.FALSE,
+            'width': 6
+        }
 
-        frame_btns.pack(side=tk.BOTTOM, pady=6)
+        ttk.Button(frame_btns, text='Ok', command=self.ok, **btn_args).pack(side=tk.LEFT, padx=5)
+        ttk.Button(frame_btns, text='Apply', command=self.apply, **btn_args).pack(side=tk.LEFT, padx=5)
+        ttk.Button(frame_btns, text='Cancel', command=self.cancel, **btn_args).pack(side=tk.LEFT, padx=5)
+
+        frame_btns.pack(side=tk.BOTTOM)
 
     def ok(self):
         """Apply config changes, then dismiss dialog. """
         self.apply()
-        self.destroy()
+        self.cancel()
 
     def apply(self):
         """Apply config changes and leave dialog open. """
@@ -141,12 +151,8 @@ class ConfigDialog(tk.Toplevel):
 
     def cancel(self):
         """Dismiss config dialog. """
-        # changes.clear()
-        self.destroy()
-
-    def destroy(self):
         self.grab_release()
-        super().destroy()
+        self.destroy()
 
 
 class ColorPage(ttk.Frame):
@@ -171,10 +177,10 @@ class ColorPage(ttk.Frame):
         row = 0
         for color, var in self.config.items():
             label_color = ttk.Label(self, text=color)
-            entry_color = ttk.Entry(self, width=8, textvariable=var)
+            entry_color = FixedEntry(self, width=7, textvariable=var)
 
-            label_color.grid(row=row, column=0, sticky=tk.W, padx=5, pady=4)
-            entry_color.grid(row=row, column=1, sticky=tk.E, padx=10, pady=4)
+            label_color.grid(row=row, column=0, sticky=tk.W, padx=12, pady=4)
+            entry_color.grid(row=row, column=1, sticky=tk.E, padx=16, pady=4)
 
             row += 1
 
@@ -196,33 +202,33 @@ class GeneralPage(ttk.Frame):
             'Family': tk.StringVar(self, 'Courier New'),
             'Size': tk.IntVar(self, 10),
             'Title Size': tk.IntVar(self, 24),
-            'Separator Size': tk.IntVar(self, 16)
+            'Sep Size': tk.IntVar(self, 16)
         }
 
         self.create_widgets()
 
     def create_widgets(self):
         # workspace
-        frame_ws = ttk.LabelFrame(self, borderwidth=2, relief=tk.GROOVE, text="Workspace Preferences")
+        frame_ws = ttk.LabelFrame(self, text="Workspace Preferences")
 
         frame_ws.columnconfigure(0, weight=1)
 
-        text_width_title = ttk.Label(frame_ws, text='Text Width (in characters)')
+        text_width_title = ttk.Label(frame_ws, text="Text Width")
         text_width_int = DigitEntry(frame_ws, justify=tk.RIGHT, width=8, textvariable=self.config['text_width'])
-        
+
         text_width_title.grid(row=0, column=0, sticky=tk.W, padx=5, pady=5)
         text_width_int.grid(row=0, column=1, sticky=tk.E, padx=10, pady=5)
 
         frame_ws.pack(side=tk.TOP, padx=5, pady=5, expand=tk.TRUE, fill=tk.BOTH)
 
         # fonts
-        frame_fonts = ttk.LabelFrame(self, borderwidth=2, relief=tk.GROOVE, text="Font Preferences")
+        frame_fonts = ttk.LabelFrame(self, text="Font Preferences")
 
         frame_fonts.columnconfigure(0, weight=1)
         
         # font family
-        label_font_family = ttk.Label(frame_fonts, text='Family')
-        entry_font_family = AutocompleteCombobox(frame_fonts, textvariable=self.font_config['Family'])
+        label_font_family = ttk.Label(frame_fonts, text="Family")
+        entry_font_family = AutocompleteCombobox(frame_fonts,  width=16, textvariable=self.font_config['Family'])
 
         font_names = sorted(set(tkfont.families(self)))
         entry_font_family.set_completion_list(font_names)
@@ -247,7 +253,7 @@ class GeneralPage(ttk.Frame):
         font_family = self.font_config['Family'].get()
         size_main = self.font_config['Size'].get()
         size_title = self.font_config['Title Size'].get()
-        size_sep =self.font_config['Separator Size'].get() 
+        size_sep =self.font_config['Sep Size'].get() 
 
         return {
             'workspace': {k: v.get() for k,v in self.config.items()},
