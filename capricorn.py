@@ -14,7 +14,7 @@ from dialog import AboutDialog, ConfigDialog
 from lib.extendedTk import *
 
 #============================================================================
-# capricorn / controller
+# config
 #============================================================================
 DEFAULT_CONFIG = {
     'view': {
@@ -23,30 +23,49 @@ DEFAULT_CONFIG = {
         'state': 'normal'
     },
     'workspace': {
+        'font': '"Courier New" 10',
         'text_width': '128',
         'last_file': ''
     },
     'colors': {
-        'fg_main':   '#e1e4e8',
-        'bg_main':   '#454545',
-        'bg_status': '#2f2f2f',
-        'fg_text':   '#000000',
-        'bg_text':   '#f1f1f1',
-        'fg_title':  '#a968c2',
-        'scrollbar': '#6f6f6f'
+        'fg_main':      '#e1e4e8',
+        'bg_main':      '#454545',
+        'bg_status':    '#2f2f2f',
+        'fg_text':      '#000000',
+        'bg_text':      '#f1f1f1',
+        'scrollbar':    '#6f6f6f',
     },
-    'fonts': {
-        'main': '"Courier New" 10',
-        'title': '"Courier New" 24 bold',
-        'separator': '"Courier New" 16'
+    'tag.title': {
+        'pattern': '#.*',
+        'foreground': '#a968c2',
+        'font':
+        '"Courier New" 24 bold'
+    },
+    'tag.separator': {
+        'pattern': '\\*\\*\\*',
+        'foreground': '#6f6f6f',
+        'font': '"Courier New" 16',
+        'justify': 'center',
+        'spacing1': '12',
+        'spacing3': '12'
     }
 }
+
+def get_tags(config, prefix='tag.'):
+    tags = {}
+    for name in config.sections():
+        if name.startswith(prefix):
+            tags[name.removeprefix(prefix)] = dict(config[name])
+    return tags
 
 FILEDIALOG_OPTIONS = {
     "defaultextension" : ".txt",
     "filetypes": [ ("All Files", "*.*") ]
 }
 
+#============================================================================
+# capricorn / controller
+#============================================================================
 class Capricorn():
     def __init__(self, config_path, filename):
 
@@ -60,15 +79,13 @@ class Capricorn():
         config.read(config_path)
 
         self.config_path = config_path
-
         # apply config
         self.config = {}
         self.load_config({
             'view':      dict(config['view']),
             'workspace': dict(config['workspace']),
-            'patterns':  dict(config['patterns']),
             'colors':    dict(config['colors']),
-            'fonts':     dict(config['fonts']),
+            'tags':      get_tags(config),
         })
 
         # bind events
@@ -97,7 +114,8 @@ class Capricorn():
         self.config |= config
 
         self.view.load_config(self.config['view'])
-        self.view.load_theme(self.config['colors'], self.config['fonts'])
+        self.view.load_theme(self.config['colors'])
+        self.view.load_tags(self.config['tags'])
         self.workspace.load_config(self.config['workspace'])
 
     def run(self):
@@ -107,8 +125,8 @@ class Capricorn():
         self.workspace.update_word_count()
 
         # tag all patterns
-        for tag, pattern in self.config['patterns'].items():
-            self.workspace.tag_pattern(pattern, tag)
+        for tag, settings in self.config['tags'].items():
+            self.workspace.tag_pattern(settings['pattern'], tag)
 
         if self.workspace.set_unsaved():
             self.update_title()
@@ -196,8 +214,12 @@ class Capricorn():
 
         self.config['view']['state'] = 'zoomed' if self.view.zoomed() else 'normal'
 
-        #update workspace config
+        # update workspace config
         self.config['workspace']['last_file'] = self.workspace.path or ''
+
+        # tags
+        for name, settings in self.config.pop('tags').items():
+            self.config[f'tag.{name}'] = settings
 
         # write to config file
         config = ConfigParser()
@@ -215,6 +237,7 @@ class Capricorn():
             self.view.destroy()
 
 #TODO: color picker entry
+#TODO: tags dialog
 #TODO: latex exporter
 if __name__ == '__main__':
     filename = sys.argv[1] if len(sys.argv) > 1 else None

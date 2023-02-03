@@ -107,33 +107,38 @@ class ConfigDialog(tk.Toplevel):
         self.wait_window()
 
     def create_widgets(self, config):
-        # notebook
-        self.note = ttk.Notebook(self)
-        self.note.enable_traversal()
+        frame_content = ttk.Frame(self)
 
-        self.tabs = {
-            'General': GeneralPage(self.note, config),
-            'Colors': ColorPage(self.note, config)
-        }
+        self.frames = [
+            WorkspaceFrame(frame_content, "Workspace", config['workspace']),
+            ColorFrame(frame_content, "Colors", config['colors'])
+        ]
 
-        for name, tab in self.tabs.items():
-            self.note.add(tab, text=name)
-        
-        self.note.pack(side=tk.TOP, expand=tk.TRUE, fill=tk.BOTH)
-        
+        for frame in self.frames:
+            frame.pack(side=tk.TOP, padx=5, pady=5, expand=tk.TRUE, fill=tk.BOTH)
+
+        frame_content.pack(side=tk.TOP, expand=tk.TRUE, fill=tk.BOTH)
+
         # buttons
-        frame_btns = ttk.Frame(self, style='Buttonframe.TFrame', padding=6)
+        frame_btns = ttk.Frame(self, style='Buttonframe.TFrame')
+        frame_btns.configure(borderwidth=8)
 
-        btn_args = {
-            'takefocus': tk.FALSE,
-            'width': 6
+        buttons = {
+            'Ok':     self.ok,
+            'Apply':  self.apply,
+            'Cancel': self.cancel
         }
 
-        ttk.Button(frame_btns, text='Ok', command=self.ok, **btn_args).pack(side=tk.LEFT, padx=5)
-        ttk.Button(frame_btns, text='Apply', command=self.apply, **btn_args).pack(side=tk.LEFT, padx=5)
-        ttk.Button(frame_btns, text='Cancel', command=self.cancel, **btn_args).pack(side=tk.LEFT, padx=5)
+        buttons_args = {
+            'takefocus': tk.FALSE,
+            'width': 8
+        }
 
-        frame_btns.pack(side=tk.BOTTOM)
+        for text, cmd in buttons.items():
+            btn = ttk.Button(frame_btns, text=text, command=cmd, **buttons_args)
+            btn.pack(side=tk.LEFT, padx=5)
+
+        frame_btns.pack(side=tk.BOTTOM, expand=tk.TRUE, fill=tk.X)
 
     def ok(self):
         """Apply config changes, then dismiss dialog. """
@@ -144,8 +149,8 @@ class ConfigDialog(tk.Toplevel):
         """Apply config changes and leave dialog open. """
 
         config = {}
-        for tab in self.tabs.values():
-            config |= tab.get_config()
+        for frame in self.frames:
+            config |= frame.get_config()
 
         self.apply_cb(config)
 
@@ -155,13 +160,13 @@ class ConfigDialog(tk.Toplevel):
         self.destroy()
 
 
-class ColorPage(ttk.Frame):
-    def __init__(self, master, config):
-        super().__init__(master)
+class ColorFrame(ttk.LabelFrame):
+    def __init__(self, master, text, config):
+        super().__init__(master, text=text)
 
-        self.config = {}
-        for name, color in config['colors'].items():
-            self.config[name] = tk.StringVar(self, color.replace('#', ''))
+        self.colors = {}
+        for name, color in config.items():
+            self.colors[name] = tk.StringVar(self, color.replace('#', ''))
 
         self.create_widgets()
 
@@ -169,90 +174,64 @@ class ColorPage(ttk.Frame):
         self.columnconfigure(0, weight=1)
 
         row = 0
-        for color, var in self.config.items():
+        for color, var in self.colors.items():
             label_color = ttk.Label(self, text=color)
             entry_color = ColorEntry(self, width=6, textvariable=var)
 
-            label_color.grid(row=row, column=0, sticky=tk.W, padx=12, pady=4)
-            entry_color.grid(row=row, column=1, sticky=tk.E, padx=16, pady=4)
+            label_color.grid(row=row, column=0, sticky=tk.W, padx=5, pady=5)
+            entry_color.grid(row=row, column=1, sticky=tk.E, padx=10, pady=5)
 
             row += 1
 
     def get_config(self):
-        return {
-            'colors': {k: f"#{v.get()}" for k,v in self.config.items()}
-        }
+        return { 'colors': {k: f"#{v.get()}" for k,v in self.colors.items()} }
 
 
-class GeneralPage(ttk.Frame):
-    def __init__(self, master, config):
-        super().__init__(master)
+class WorkspaceFrame(ttk.LabelFrame):
+    def __init__(self, master, text, config):
+        super().__init__(master, text=text)
 
-        self.config = {
-            'text_width': tk.IntVar(self, config['workspace']['text_width'])
-        }
+        self.text_width = tk.IntVar(self, config['text_width'])
 
-        self.font_config = {
-            'Family': tk.StringVar(self, 'Courier New'),
-            'Size': tk.IntVar(self, 10),
-            'Title Size': tk.IntVar(self, 24),
-            'Sep Size': tk.IntVar(self, 16)
-        }
+        self.font_family = tk.StringVar(self, 'Courier New')
+        self.font_size = tk.IntVar(self, 10)
 
         self.create_widgets()
 
     def create_widgets(self):
-        # workspace
-        frame_ws = ttk.LabelFrame(self, text="Workspace Preferences")
+        # text width
+        frame_width = ttk.Frame(self)
+        frame_width.columnconfigure(0, weight=1)
 
-        frame_ws.columnconfigure(0, weight=1)
+        label_width = ttk.Label(frame_width, text="Text Width")
+        label_width.grid(row=0, column=0, sticky=tk.W, padx=5, pady=5)
 
-        text_width_title = ttk.Label(frame_ws, text="Text Width")
-        text_width_int = DigitEntry(frame_ws, justify=tk.RIGHT, width=6, textvariable=self.config['text_width'])
+        entry_width = DigitEntry(frame_width, justify=tk.RIGHT, width=6, textvariable=self.text_width)
+        entry_width.grid(row=0, column=1, sticky=tk.E, padx=10, pady=5)
 
-        text_width_title.grid(row=0, column=0, sticky=tk.W, padx=5, pady=5)
-        text_width_int.grid(row=0, column=1, sticky=tk.E, padx=10, pady=5)
+        frame_width.pack(side=tk.TOP, expand=tk.TRUE, fill=tk.X)
 
-        frame_ws.pack(side=tk.TOP, padx=5, pady=5, expand=tk.TRUE, fill=tk.BOTH)
+        # font
+        frame_font = ttk.Frame(self)
+        frame_font.columnconfigure(0, weight=1)
 
-        # fonts
-        frame_fonts = ttk.LabelFrame(self, text="Font Preferences")
-        frame_fonts.columnconfigure(0, weight=1)
-        
-        # font family
-        label_font_family = ttk.Label(frame_fonts, text="Family")
-        entry_font_family = AutocompleteCombobox(frame_fonts,  width=16, textvariable=self.font_config['Family'])
+        label_font = ttk.Label(frame_font, text="Font")
+        label_font.columnconfigure(0, weight=1)
+        label_font.grid(row=0, column=0, sticky=tk.W, padx=5, pady=5)
 
-        font_names = sorted(set(tkfont.families(self)))
-        entry_font_family.set_completion_list(font_names)
+        entry_family = AutocompleteCombobox(frame_font, width=16, textvariable=self.font_family)
+        entry_family.set_completion_list(sorted(set(tkfont.families(self))))
+        entry_family.grid(row=0, column=1, sticky=tk.E, padx=5, pady=5)
 
-        label_font_family.grid(row=0, column=0, sticky=tk.W, padx=5, pady=5)
-        entry_font_family.grid(row=0, column=1, sticky=tk.E, padx=10, pady=5)
+        entry_size = DigitEntry(frame_font, justify=tk.RIGHT, width=6, textvariable=self.font_size)
+        entry_size.grid(row=0, column=2, sticky=tk.E, padx=10, pady=5)
 
-        # font sizes
-        row = 1
-        for name, var in list(self.font_config.items())[1:]:
-            label = ttk.Label(frame_fonts, text=name)
-            entry = DigitEntry(frame_fonts, justify=tk.RIGHT, width=6, textvariable=var)
-
-            label.grid(row=row, column=0, sticky=tk.W, padx=5, pady=5)
-            entry.grid(row=row, column=1, sticky=tk.E, padx=10, pady=5)
-
-            row += 1
-
-        frame_fonts.pack(side=tk.TOP, padx=5, pady=5, expand=tk.TRUE, fill=tk.BOTH)
+        frame_font.pack(side=tk.TOP, expand=tk.TRUE, fill=tk.X)
 
     def get_config(self):
-        font_family = self.font_config['Family'].get()
-        size_main = self.font_config['Size'].get()
-        size_title = self.font_config['Title Size'].get()
-        size_sep =self.font_config['Sep Size'].get() 
-
-        return {
-            'workspace': {k: v.get() for k,v in self.config.items()},
-            'fonts': {
-                'main': f'"{font_family}" {size_main}',
-                'title': f'"{font_family}" {size_title} bold',
-                'separator': f'"{font_family}" {size_sep}',
-            }
+        config = {
+            'font': f'"{self.font_family.get()}" {self.font_size.get()}',
+            'text_width': self.text_width.get()
         }
+
+        return { 'workspace': config }

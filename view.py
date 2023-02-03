@@ -1,5 +1,3 @@
-import re
-
 import tkinter as tk
 from tkinter import ttk
 
@@ -14,15 +12,11 @@ namespace eval ttk::theme::capricorn {
             -foreground $colors(-fg_main)
 
         # Entry
-        ttk::style configure TEntry \
-            -fieldbackground $colors(-bg_main) \
-            -font $fonts(-main)
-
+        ttk::style configure TEntry -fieldbackground $colors(-bg_main)
         option add *TEntry.font TkFixedFont
 
-        ttk::style configure TCombobox \
-            -fieldbackground $colors(-bg_main)
-
+        # Combobox
+        ttk::style configure TCombobox -fieldbackground $colors(-bg_main)
         option add *TCombobox*Listbox.background $colors(-bg_main)
         option add *TCombobox*Listbox.foreground $colors(-fg_main)
 
@@ -38,45 +32,25 @@ namespace eval ttk::theme::capricorn {
             -background $colors(-scrollbar) -relief flat
 
         # Text
-        ttk::style configure TText \
+        ttk::style configure Text \
             -background $colors(-bg_text) \
             -foreground $colors(-fg_text) \
             -insertbackground $colors(-fg_text) \
             -padx 16 -pady 16 \
             -borderwidth 1 -relief solid \
-            -font $fonts(-main)
-
-        ttk::style configure Title.TText \
-            -foreground $colors(-fg_title) \
-            -font $fonts(-title)
-
-        ttk::style configure Separator.TText \
-            -justify center \
-            -spacing1 12 -spacing3 12 \
-            -font $fonts(-separator)
 
         # Statusbar
         ttk::style configure Statusbar.TFrame -background $colors(-bg_status)
-        ttk::style configure Statusbar.TLabel -background $colors(-bg_status) -font $fonts(-main)
+        ttk::style configure Statusbar.TLabel -background $colors(-bg_status)
 
-        # Dialog
-        ttk::style configure Buttonframe.TFrame -background $colors(-bg_status) -padding {6}
-
+        # Button
         ttk::style configure TButton \
             -padding {8 4 8 4} -anchor center \
-            -background $colors(-bg_main) 
+            -background $colors(-bg_status)
 
-        ttk::style configure TNotebook -tabmargins {0 2 0 0} \
-            -background $colors(-bg_status) \
-            -borderwidth 1
-        ttk::style configure TNotebook.Tab -padding {4 6 4 0} -expand {0 0 2} 
-        ttk::style map TNotebook.Tab \
-            -expand     [list selected {1 2 4 2}] \
-            -background [list !selected $colors(-bg_status)]
-
+        # Labelframe
         ttk::style configure TLabelframe \
             -borderwidth 1 -relief solid
-
     }
 }
 """
@@ -111,30 +85,24 @@ class View(tk.Tk):
         self.text.bind('<Control-s>', self.on_save)
         self.text.bind('<Control-S>', self.on_save_as)
 
-    def _apply_style(self):
-        self.text._apply_style("TText")
-
-        # apply style for tags
-        self.text.tag_config("title", ttk.Style().configure("Title.TText"))
-        self.text.tag_config("separator", ttk.Style().configure("Separator.TText"))
-
     def load_config(self, config):
         self.geometry(f"{config['width']}x{config['height']}")
         self.state(config['state'])
 
-    def load_theme(self, colors, fonts):
+    def load_theme(self, colors):
         # set colors
         color_str = " ".join(['-%s "%s"' % (c, colors[c]) for c in colors])
         self.tk.eval("namespace eval ttk::theme::capricorn {array set colors {%s}}" % color_str)
 
-        # set fonts
-        font_str = " ".join(['-%s {%s}' % (f, fonts[f]) for f in fonts])
-        self.tk.eval("namespace eval ttk::theme::capricorn {array set fonts {%s}}" % font_str)
-
         # apply theme settings
         self.tk.eval(THEME_SETTINGS)
 
-        self._apply_style()
+        # apply style for text widget
+        self.text._apply_style("Text")
+
+    def load_tags(self, tags):
+        for tag, settings in tags.items():
+            self.text.tag_configure(tag, {k:v for k,v in settings.items() if k != 'pattern'})
 
     def load_menu(self):
         menu = tk.Menu(self)

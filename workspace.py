@@ -23,7 +23,10 @@ class Workspace():
         self.set_filename(None)
 
     def load_config(self, config: dict) -> None:
-        self.text.configure(width=config['text_width'])
+        self.text.configure({
+            'width': config['text_width'],
+            'font': config['font']
+        })
 
     def set_filename(self, filename):
         self.path = os.path.abspath(filename) if filename else None

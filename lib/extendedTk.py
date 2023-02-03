@@ -70,7 +70,7 @@ class ColorEntry(ttk.Frame):
 
 class ThemedText(tk.Text):
     """ Text widget that can be styled """
-    def __init__(self, master=None, style="TText", **kw):
+    def __init__(self, master=None, style="Text", **kw):
 
         super().__init__(master=master, **kw)
 
