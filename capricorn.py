@@ -121,7 +121,7 @@ class Capricorn():
         return 'break'
 
     def show_settings(self, event):
-        ConfigDialog(event.widget, None, self.load_config)
+        ConfigDialog(event.widget, None, self.config, self.load_config)
         return 'break'
 
     def update_title(self):
@@ -218,9 +218,7 @@ class Capricorn():
 #TODO: latex exporter
 if __name__ == '__main__':
     filename = sys.argv[1] if len(sys.argv) > 1 else None
-    #ConfigDialog(tk.Tk(), None, lambda e: e).mainloop()
 
     app = Capricorn("config.ini", filename)
-    ConfigDialog(app.view, None, lambda e: e).mainloop()
-    #app.run()
+    app.run()
 

@@ -2,7 +2,7 @@ import tkinter as tk
 import tkinter.font as tkfont
 from tkinter import ttk
 
-from lib.extendedTk import DigitEntry, FixedEntry
+from lib.extendedTk import DigitEntry, ColorEntry
 from lib.autocomplete import AutocompleteCombobox
 
 #============================================================================
@@ -85,7 +85,7 @@ class AboutDialog(tk.Toplevel):
 # config
 #============================================================================
 class ConfigDialog(tk.Toplevel):
-    def __init__(self, parent, title, apply):
+    def __init__(self, parent, title, config, apply):
         """Create dialog, do not return until tk widget destroyed."""
         super().__init__(parent)
 
@@ -96,7 +96,7 @@ class ConfigDialog(tk.Toplevel):
         y = parent.winfo_rooty() + 30
         self.geometry(f'+{x}+{y}')
 
-        self.create_widgets()
+        self.create_widgets(config)
         self.resizable(height=tk.FALSE, width=tk.FALSE)
         self.transient(parent)
 
@@ -106,14 +106,14 @@ class ConfigDialog(tk.Toplevel):
         self.wm_deiconify()
         self.wait_window()
 
-    def create_widgets(self):
+    def create_widgets(self, config):
         # notebook
         self.note = ttk.Notebook(self)
         self.note.enable_traversal()
 
         self.tabs = {
-            'General': GeneralPage(self.note),
-            'Colors': ColorPage(self.note)
+            'General': GeneralPage(self.note, config),
+            'Colors': ColorPage(self.note, config)
         }
 
         for name, tab in self.tabs.items():
@@ -156,18 +156,12 @@ class ConfigDialog(tk.Toplevel):
 
 
 class ColorPage(ttk.Frame):
-    def __init__(self, master):
+    def __init__(self, master, config):
         super().__init__(master)
 
-        self.config = {
-            'fg_main':   tk.StringVar(self, '#e1e4e8'),
-            'bg_main':   tk.StringVar(self, '#454545'),
-            'bg_status': tk.StringVar(self, '#2f2f2f'),
-            'fg_text':   tk.StringVar(self, '#000000'),
-            'bg_text':   tk.StringVar(self, '#f1f1f1'),
-            'fg_title':  tk.StringVar(self, '#a968c2'),
-            'scrollbar': tk.StringVar(self, '#6f6f6f')
-        }
+        self.config = {}
+        for name, color in config['colors'].items():
+            self.config[name] = tk.StringVar(self, color.replace('#', ''))
 
         self.create_widgets()
 
@@ -177,7 +171,7 @@ class ColorPage(ttk.Frame):
         row = 0
         for color, var in self.config.items():
             label_color = ttk.Label(self, text=color)
-            entry_color = FixedEntry(self, width=7, textvariable=var)
+            entry_color = ColorEntry(self, width=6, textvariable=var)
 
             label_color.grid(row=row, column=0, sticky=tk.W, padx=12, pady=4)
             entry_color.grid(row=row, column=1, sticky=tk.E, padx=16, pady=4)
@@ -186,16 +180,16 @@ class ColorPage(ttk.Frame):
 
     def get_config(self):
         return {
-            'colors': {k: v.get() for k,v in self.config.items()}
+            'colors': {k: f"#{v.get()}" for k,v in self.config.items()}
         }
 
 
 class GeneralPage(ttk.Frame):
-    def __init__(self, master):
+    def __init__(self, master, config):
         super().__init__(master)
 
         self.config = {
-            'text_width': tk.IntVar(self, 128)
+            'text_width': tk.IntVar(self, config['workspace']['text_width'])
         }
 
         self.font_config = {
@@ -214,7 +208,7 @@ class GeneralPage(ttk.Frame):
         frame_ws.columnconfigure(0, weight=1)
 
         text_width_title = ttk.Label(frame_ws, text="Text Width")
-        text_width_int = DigitEntry(frame_ws, justify=tk.RIGHT, width=8, textvariable=self.config['text_width'])
+        text_width_int = DigitEntry(frame_ws, justify=tk.RIGHT, width=6, textvariable=self.config['text_width'])
 
         text_width_title.grid(row=0, column=0, sticky=tk.W, padx=5, pady=5)
         text_width_int.grid(row=0, column=1, sticky=tk.E, padx=10, pady=5)
@@ -223,7 +217,6 @@ class GeneralPage(ttk.Frame):
 
         # fonts
         frame_fonts = ttk.LabelFrame(self, text="Font Preferences")
-
         frame_fonts.columnconfigure(0, weight=1)
         
         # font family
@@ -240,7 +233,7 @@ class GeneralPage(ttk.Frame):
         row = 1
         for name, var in list(self.font_config.items())[1:]:
             label = ttk.Label(frame_fonts, text=name)
-            entry = DigitEntry(frame_fonts, justify=tk.RIGHT, width=8, textvariable=var)
+            entry = DigitEntry(frame_fonts, justify=tk.RIGHT, width=6, textvariable=var)
 
             label.grid(row=row, column=0, sticky=tk.W, padx=5, pady=5)
             entry.grid(row=row, column=1, sticky=tk.E, padx=10, pady=5)

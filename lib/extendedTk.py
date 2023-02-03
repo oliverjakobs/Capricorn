@@ -29,28 +29,6 @@ class FadingLabel(ttk.Label):
         self["text"] = msg
         self.after(self._delay, lambda: self.config(text=self._idle_text))
 
-class FixedEntry(ttk.Entry):
-    def __init__(self, master, **kw):
-        self.limit = kw.get('width', None)
-
-        super().__init__(master=master, **kw)
-
-        self['validate'] = 'key'
-        v_cmd = (self.register(self._on_validate), '%d', '%P', '%s')
-        self['validatecommand'] = v_cmd
-
-    def _on_validate(self, d, P, s):
-
-        if d == '1': #insert
-            if self.limit and len(s) >= self.limit:
-                return False
-        return True
-
-#TODO: pass through entry functions
-class ColorEntry(ttk.Frame):
-    def __init__(self, master=None, **kw):
-        ...
-
 class DigitEntry(ttk.Entry):
     def __init__(self, master=None, **kw):
         self.limit = kw.pop('limit', kw.get('width', None))
@@ -78,6 +56,17 @@ class DigitEntry(ttk.Entry):
                 return False
             return P.isdigit()
         return True
+
+#TODO: pass through entry functions
+class ColorEntry(ttk.Frame):
+    def __init__(self, master=None, **kw):
+        super().__init__(master=master)
+
+        label = ttk.Label(self, text='#')
+        self.entry = DigitEntry(self, **kw)
+
+        label.pack(side=tk.LEFT)
+        self.entry.pack(side=tk.LEFT)
 
 class ThemedText(tk.Text):
     """ Text widget that can be styled """
@@ -162,34 +151,3 @@ class ExtendedText(ThemedText):
     #============================================================================
     def set_tab_size(self, size):
         self['tabs'] = self.tk.call("font", "measure", self['font'], size * ' ')
-
-
-######################################################################
-
-######################################################################
-import os
-
-class ExtendendThemes():
-    def __init__(self) -> None:
-        self.style = ttk.Style()
-        self.old_themes = self.style.theme_names()
-        self.added_themes = []
-
-    def load_from_files(self, *files):
-        for file in files:
-            self.style.tk.call('source', os.path.abspath(file))
-
-        self.added_themes = [t for t in self.style.theme_names() if t not in self.old_themes]
-
-    def load_from_str(self, *strings):
-        for s in strings:
-            self.style.tk.eval(s)
-            
-        self.added_themes = [t for t in self.style.theme_names() if t not in self.old_themes]
-
-    #TODO: load from pkgIndex.tcl
-    def load_from_index(self, dir, index_name='pkgIndex'):
-        ...
-
-    def theme_use(self, name):
-        self.style.theme_use(name)
