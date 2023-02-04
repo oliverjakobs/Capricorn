@@ -36,13 +36,11 @@ DEFAULT_CONFIG = {
         'scrollbar':    '#6f6f6f',
     },
     'tag.title': {
-        'pattern': '#.*',
         'foreground': '#a968c2',
         'font':
         '"Courier New" 24 bold'
     },
     'tag.separator': {
-        'pattern': '\\*\\*\\*',
         'foreground': '#6f6f6f',
         'font': '"Courier New" 16',
         'justify': 'center',
@@ -85,6 +83,7 @@ class Capricorn():
             'view':      dict(config['view']),
             'workspace': dict(config['workspace']),
             'colors':    dict(config['colors']),
+            'patterns':  dict(config['patterns']),
             'tags':      get_tags(config),
         })
 
@@ -118,6 +117,28 @@ class Capricorn():
         self.view.load_tags(self.config['tags'])
         self.workspace.load_config(self.config['workspace'])
 
+    def save_config(self):
+        # update view config
+        if not self.view.zoomed():
+            self.config['view']['width'] = self.view.winfo_width()
+            self.config['view']['height'] = self.view.winfo_height()
+
+        self.config['view']['state'] = 'zoomed' if self.view.zoomed() else 'normal'
+
+        # update workspace config
+        self.config['workspace']['last_file'] = self.workspace.path or ''
+
+        # tags
+        for name, settings in self.config.pop('tags').items():
+            self.config[f'tag.{name}'] = settings
+
+        # write to config file
+        config = ConfigParser()
+        config.read_dict(self.config)
+
+        with open(self.config_path, 'w') as configfile:
+            config.write(configfile)
+
     def run(self):
         self.view.mainloop()
 
@@ -125,8 +146,8 @@ class Capricorn():
         self.workspace.update_word_count()
 
         # tag all patterns
-        for tag, settings in self.config['tags'].items():
-            self.workspace.tag_pattern(settings['pattern'], tag)
+        for tag, pattern in self.config['patterns'].items():
+            self.workspace.tag_pattern(pattern, tag)
 
         if self.workspace.set_unsaved():
             self.update_title()
@@ -205,28 +226,6 @@ class Capricorn():
 
         self.update_title()
         return result
-
-    def save_config(self):
-        # update view config
-        if not self.view.zoomed():
-            self.config['view']['width'] = self.view.winfo_width()
-            self.config['view']['height'] = self.view.winfo_height()
-
-        self.config['view']['state'] = 'zoomed' if self.view.zoomed() else 'normal'
-
-        # update workspace config
-        self.config['workspace']['last_file'] = self.workspace.path or ''
-
-        # tags
-        for name, settings in self.config.pop('tags').items():
-            self.config[f'tag.{name}'] = settings
-
-        # write to config file
-        config = ConfigParser()
-        config.read_dict(self.config)
-
-        with open(self.config_path, 'w') as configfile:
-            config.write(configfile)
 
     def exit(self, *args):
         # save config

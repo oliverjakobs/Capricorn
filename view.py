@@ -102,7 +102,7 @@ class View(tk.Tk):
 
     def load_tags(self, tags):
         for tag, settings in tags.items():
-            self.text.tag_configure(tag, {k:v for k,v in settings.items() if k != 'pattern'})
+            self.text.tag_configure(tag, settings)
 
     def load_menu(self):
         menu = tk.Menu(self)

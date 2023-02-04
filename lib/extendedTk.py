@@ -86,7 +86,6 @@ class ThemedText(tk.Text):
 
         self.configure(config)
 
-
 class ExtendedText(ThemedText):
     def __init__(self, master=None, **kw):
         """A text widget that report on internal widget commands"""
