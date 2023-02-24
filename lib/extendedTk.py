@@ -2,6 +2,22 @@ import tkinter as tk
 
 from tkinter import ttk, TclError
 
+class ExtendedMenu(tk.Menu):
+    def __init__(self, master=None, **kw):
+        super().__init__(master=master, **kw)
+
+    def load_cascade(self, label, info):
+        cascade = tk.Menu(self, tearoff=0)
+
+        for item in info:
+            if item:
+                cascade.add_command(label=item[0], accelerator=item[1], command=item[2])
+            else:
+                cascade.add_separator()
+
+        self.add_cascade(label=label, menu=cascade)
+
+
 class AutoScrollbar(ttk.Scrollbar):
     """ Scrollbar that is only visible when needed. Only works with grid. """
     def __init__(self, master=None, **kw):

@@ -35,6 +35,10 @@ DEFAULT_CONFIG = {
         'bg_text':      '#f1f1f1',
         'scrollbar':    '#6f6f6f',
     },
+    'patterns': {
+        'title': '#.*',
+        'separator': '\*\*\*'
+    },
     'tag.title': {
         'foreground': '#a968c2',
         'font':
@@ -57,8 +61,8 @@ def get_tags(config, prefix='tag.'):
     return tags
 
 FILEDIALOG_OPTIONS = {
-    "defaultextension" : ".txt",
-    "filetypes": [ ("All Files", "*.*") ]
+    'defaultextension' : ".txt",
+    'filetypes': [ ("All Files", "*.*") ]
 }
 
 #============================================================================
@@ -113,15 +117,16 @@ class Capricorn():
         self.config |= config
 
         self.view.load_config(self.config['view'])
-        self.view.load_theme(self.config['colors'])
-        self.view.load_tags(self.config['tags'])
+        self.view.load_theme(self.config['colors'], self.config['tags'])
         self.workspace.load_config(self.config['workspace'])
 
     def save_config(self):
         # update view config
         if not self.view.zoomed():
-            self.config['view']['width'] = self.view.winfo_width()
-            self.config['view']['height'] = self.view.winfo_height()
+            self.config['view'].update({
+                'width': self.view.winfo_width(),
+                'height': self.view.winfo_height()
+            })
 
         self.config['view']['state'] = 'zoomed' if self.view.zoomed() else 'normal'
 
@@ -205,7 +210,7 @@ class Capricorn():
         if result:
             self.view.write_status(f"Opened {path}")
         else:
-            self.view.error_status(f"Failed to open {path}")
+            self.view.write_error(f"Failed to open {path}")
 
         self.update_title()
         return result
@@ -222,7 +227,7 @@ class Capricorn():
         if result:
             self.view.write_status(f"Successfully saved {path}")
         else:
-            self.view.error_status(f"Failed to save {path}")
+            self.view.write_error(f"Failed to save {path}")
 
         self.update_title()
         return result

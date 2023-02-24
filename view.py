@@ -66,10 +66,9 @@ class View(tk.Tk):
         except: pass
 
         # content
-        self.load_workspace().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
-        self.load_statusbar().pack(side=tk.BOTTOM, fill=tk.X)
-
-        self.load_menu()
+        self.create_workspace()
+        self.create_statusbar()
+        self.create_menu()
 
         # create and use theme
         self.tk.eval("""
@@ -80,16 +79,16 @@ class View(tk.Tk):
         ttk.Style().theme_use('capricorn')
 
         # bind events (binding to text widget to override text specific events)
-        self.text.bind('<Control-n>', self.on_new)
-        self.text.bind('<Control-o>', self.on_open)
-        self.text.bind('<Control-s>', self.on_save)
-        self.text.bind('<Control-S>', self.on_save_as)
+        self.text.bind('<Control-n>', lambda e: self.on_event('<<new>>'))
+        self.text.bind('<Control-o>', lambda e: self.on_event('<<open>>'))
+        self.text.bind('<Control-s>', lambda e: self.on_event('<<save>>'))
+        self.text.bind('<Control-S>', lambda e: self.on_event('<<save-as>>'))
 
     def load_config(self, config):
         self.geometry(f"{config['width']}x{config['height']}")
         self.state(config['state'])
 
-    def load_theme(self, colors):
+    def load_theme(self, colors, tags):
         # set colors
         color_str = " ".join(['-%s "%s"' % (c, colors[c]) for c in colors])
         self.tk.eval("namespace eval ttk::theme::capricorn {array set colors {%s}}" % color_str)
@@ -97,101 +96,67 @@ class View(tk.Tk):
         # apply theme settings
         self.tk.eval(THEME_SETTINGS)
 
-        # apply style for text widget
-        self.text._apply_style("Text")
-
-    def load_tags(self, tags):
+        # configure tags
         for tag, settings in tags.items():
             self.text.tag_configure(tag, settings)
 
-    def load_menu(self):
-        menu = tk.Menu(self)
+        # apply style for text widget
+        self.text._apply_style("Text")
+
+    def on_event(self, sequence: str):
+        self.event_generate(sequence)
+        return 'break'
+
+    def create_menu(self):
+        menu = ExtendedMenu(self)
 
         # file
-        menu_file = tk.Menu(menu, tearoff=0)
-        menu_file.add_command(label="New File", accelerator="Ctrl+N", command=self.on_new)
-        menu_file.add_command(label="Open File", accelerator="Ctrl+O", command=self.on_open)
-        menu_file.add_separator()
-        menu_file.add_command(label="Save", accelerator="Ctrl+S", command=self.on_save)
-        menu_file.add_command(label="Save As", accelerator="Ctrl+Shift+S", command=self.on_save_as)
-        menu_file.add_separator()
-        menu_file.add_command(label="Settings", command=lambda: self.event_generate('<<show-settings>>'))
-        menu_file.add_separator()
-        menu_file.add_command(label="Exit", command=lambda: self.event_generate('<<wnd-close>>'))
+        menu.load_cascade("File", [
+            ("New File",  "Ctrl+N",       lambda: self.on_event('<<new>>')),
+            ("Open File", "Ctrl+O",       lambda: self.on_event('<<open>>')),
+            ("Save",      "Ctrl+S",       lambda: self.on_event('<<save>>')),
+            ("Save As",   "Ctrl+Shift+S", lambda: self.on_event('<<save-as>>')),
+            (),
+            ("Settings",  None,           lambda: self.on_event('<<show-setting>>')),
+            (),
+            ("Exit",      None,           lambda: self.on_event('<<wnd-close>>')),
+        ])
 
         # edit
-        menu_edit = tk.Menu(menu, tearoff=0)
-        menu_edit.add_command(label="Undo", accelerator="Ctrl+Z", command=self.text.edit_undo)
-        menu_edit.add_command(label="Redo", accelerator="Ctrl+Y", command=self.text.edit_redo)
-        menu_edit.add_separator()
-        menu_edit.add_command(label="Cut", accelerator="Ctrl+X")
-        menu_edit.add_command(label="Copy", accelerator="Ctrl+C")
-        menu_edit.add_command(label="Paste", accelerator="Ctrl+V")
-        menu_edit.add_separator()
-        menu_edit.add_command(label="Find", accelerator="Ctrl+F")
-        menu_edit.add_command(label="Replace", accelerator="Ctrl+H")
+        menu.load_cascade("Edit", [
+            ("Undo",    "Ctrl+Z",   self.text.edit_undo),
+            ("Redo",    "Ctrl+Y",   self.text.edit_redo),
+            #(),
+            #("Cut",     "Ctrl+X",   None),
+            #("Copy",    "Ctrl+C",   None),
+            #("Paste",   "Ctrl+V",   None),
+            #(),
+            #("Find",    "Ctrl+F",   None),
+            #("Replace", "Ctrl+H",   None),
+        ])
 
         # help
-        menu_help = tk.Menu(menu, tearoff=0)
-        menu_help.add_command(label="About", command=lambda: self.event_generate('<<show-about>>'))
+        menu.load_cascade("Help", [
+            ("About", None, lambda: self.on_event('<<show-about>>'))
+        ])
 
-        menu.add_cascade(label="File", menu=menu_file)
-        menu.add_cascade(label="Edit", menu=menu_edit)
-        menu.add_cascade(label="Help", menu=menu_help)
         self.config(menu=menu)
 
-    def on_new(self, event=None):
-        self.event_generate('<<new>>')
-        return 'break'
-
-    def on_open(self, event=None):
-        self.event_generate('<<open>>')
-        return 'break'
-
-    def on_save(self, event=None):
-        self.event_generate('<<save>>')
-        return 'break'
-
-    def on_save_as(self, event=None):
-        self.event_generate('<<save-as>>')
-        return 'break'
-
-    def load_statusbar(self):
-        bar = ttk.Frame(self, style='Statusbar.TFrame')
-
-        self.status = FadingLabel(bar, text="", style='Statusbar.TLabel')
-
-        frame = ttk.Frame(bar, style='Statusbar.TFrame')
-        self.label_word_count = ttk.Label(frame, style='Statusbar.TLabel')
-        self.label_insert_pos = ttk.Label(frame, style='Statusbar.TLabel')
-
-        self.label_word_count.pack(side=tk.LEFT, padx=8)
-        self.label_insert_pos.pack(side=tk.LEFT, padx=8)
-
-        # grid
-        bar.columnconfigure(1, weight=1)
-
-        self.status.grid(row=0, column=0, sticky=tk.W, padx=8, pady=2)
-        frame.grid(row=0, column=1, sticky=tk.E, padx=32, pady=2)
-
-        return bar
-
-    def load_workspace(self,):
+    def create_workspace(self):
         workspace = ttk.Frame(self)
-
         workspace.columnconfigure(0, weight=1)
         workspace.rowconfigure(0, weight=1)
 
         # text frame
         frame = ttk.Frame(workspace)
+
         self.text = ExtendedText(frame, wrap=tk.WORD, undo=True)
         self.text.pack(side=tk.TOP, fill=tk.Y, expand=True, pady=8)
 
+        frame.grid(row=0, column=0, sticky=tk.NSEW)
+
         # scrollbar
         scroll = AutoScrollbar(workspace, orient=tk.VERTICAL)
-
-        # grid
-        frame.grid(row=0, column=0, sticky=tk.NSEW)
         scroll.grid(row=0, column=1, sticky=tk.NS)
 
         # scroll commands
@@ -201,12 +166,31 @@ class View(tk.Tk):
         # focus on text widget
         self.text.focus_set()
 
-        return workspace
+        workspace.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+
+    def create_statusbar(self):
+        statusbar = ttk.Frame(self, style='Statusbar.TFrame')
+        statusbar.columnconfigure(1, weight=1)
+
+        self.status = FadingLabel(statusbar, text="", style='Statusbar.TLabel')
+        self.status.grid(row=0, column=0, sticky=tk.W, padx=8, pady=2)
+
+        frame = ttk.Frame(statusbar, style='Statusbar.TFrame')
+
+        self.label_word_count = ttk.Label(frame, style='Statusbar.TLabel')
+        self.label_word_count.pack(side=tk.LEFT, padx=8)
+
+        self.label_insert_pos = ttk.Label(frame, style='Statusbar.TLabel')
+        self.label_insert_pos.pack(side=tk.LEFT, padx=8)
+
+        frame.grid(row=0, column=1, sticky=tk.E, padx=32, pady=2)
+
+        statusbar.pack(side=tk.BOTTOM, fill=tk.X)
 
     def write_status(self, msg):
         self.status.write(msg)
 
-    def error_status(self, msg):
+    def write_error(self, msg):
         self.status.write("[Error]: " + msg)
 
     def zoomed(self):
