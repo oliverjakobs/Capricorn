@@ -117,7 +117,7 @@ class View(tk.Tk):
             ("Save",      "Ctrl+S",       lambda: self.on_event('<<save>>')),
             ("Save As",   "Ctrl+Shift+S", lambda: self.on_event('<<save-as>>')),
             (),
-            ("Settings",  None,           lambda: self.on_event('<<show-setting>>')),
+            ("Settings",  None,           lambda: self.on_event('<<show-pref>>')),
             (),
             ("Exit",      None,           lambda: self.on_event('<<wnd-close>>')),
         ])

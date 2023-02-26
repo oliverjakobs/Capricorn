@@ -9,7 +9,7 @@ import tkinter.messagebox as mbox
 from view import View
 from workspace import Workspace
 
-from dialog import AboutDialog, ConfigDialog
+from dialog import AboutDialog, PrefDialog
 
 from lib.extendedTk import *
 
@@ -54,15 +54,16 @@ DEFAULT_CONFIG = {
 }
 
 def get_tags(config, prefix='tag.'):
-    tags = {}
-    for name in config.sections():
-        if name.startswith(prefix):
-            tags[name.removeprefix(prefix)] = dict(config[name])
+    sections = [s for s in config.sections() if s.startswith(prefix)]
+    tags = {s.removeprefix(prefix): dict(config[s]) for s in sections}
     return tags
 
 FILEDIALOG_OPTIONS = {
     'defaultextension' : ".txt",
-    'filetypes': [ ("All Files", "*.*") ]
+    'filetypes': [
+        ("Text Documents", "*.txt"),
+        ("All Files", "*.*")
+    ]
 }
 
 #============================================================================
@@ -101,8 +102,10 @@ class Capricorn():
         self.view.bind('<<save-as>>', self.save_as)
         self.view.bind('<<wnd-close>>', self.exit)
 
-        self.view.bind('<<show-about>>', self.show_about)
-        self.view.bind('<<show-settings>>', self.show_settings)
+        self.view.bind('<<show-about>>', lambda e:
+                       AboutDialog(e.widget))
+        self.view.bind('<<show-pref>>', lambda e:
+                       PrefDialog(e.widget, self.config, self.load_config))
 
         self.view.protocol("WM_DELETE_WINDOW", self.exit)
 
@@ -159,14 +162,6 @@ class Capricorn():
 
     def on_insert_move(self, event):
         self.workspace.update_insert_pos()
-
-    def show_about(self, event):
-        AboutDialog(event.widget)
-        return 'break'
-
-    def show_settings(self, event):
-        ConfigDialog(event.widget, None, self.config, self.load_config)
-        return 'break'
 
     def update_title(self):
         self.view.title(self.workspace.get_title())

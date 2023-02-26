@@ -82,10 +82,10 @@ class AboutDialog(tk.Toplevel):
 
 
 #============================================================================
-# config
+# preferences
 #============================================================================
-class ConfigDialog(tk.Toplevel):
-    def __init__(self, parent, title, config, apply):
+class PrefDialog(tk.Toplevel):
+    def __init__(self, parent, config, apply, title=None):
         """Create dialog, do not return until tk widget destroyed."""
         super().__init__(parent)
 
