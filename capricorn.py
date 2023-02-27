@@ -53,7 +53,7 @@ DEFAULT_CONFIG = {
     }
 }
 
-def get_tags(config, prefix='tag.'):
+def get_tags(config: dict, prefix:str = 'tag.') -> dict:
     sections = [s for s in config.sections() if s.startswith(prefix)]
     tags = {s.removeprefix(prefix): dict(config[s]) for s in sections}
     return tags
@@ -70,7 +70,7 @@ FILEDIALOG_OPTIONS = {
 # capricorn / controller
 #============================================================================
 class Capricorn():
-    def __init__(self, config_path, filename):
+    def __init__(self, config_path: str, filename: str):
 
         # create view and workspace
         self.view = View()
@@ -96,17 +96,17 @@ class Capricorn():
         self.view.bind("<<text-changed>>", self.on_text_change)
         self.view.bind("<<insert-moved>>", self.on_insert_move)
 
-        self.view.bind('<<new>>', self.new_file)
-        self.view.bind('<<open>>', self.open)
-        self.view.bind('<<save>>', self.save)
-        self.view.bind('<<save-as>>', self.save_as)
-        self.view.bind('<<wnd-close>>', self.exit)
+        self.view.bind('<<new>>',       self.new_file)
+        self.view.bind('<<open>>',      self.open)
+        self.view.bind('<<save>>',      self.save)
+        self.view.bind('<<save-as>>',   self.save_as)
 
         self.view.bind('<<show-about>>', lambda e:
                        AboutDialog(e.widget))
         self.view.bind('<<show-pref>>', lambda e:
-                       PrefDialog(e.widget, self.config, self.load_config))
+                       PrefDialog(e.widget, self.config, self.apply_config))
 
+        self.view.bind('<<wnd-close>>', self.exit)
         self.view.protocol("WM_DELETE_WINDOW", self.exit)
 
         # read file
@@ -116,25 +116,31 @@ class Capricorn():
 
         self.update_title()
 
-    def load_config(self, config):
+    def apply_config(self, config: dict) -> None:
+        self.load_config(config)
+        self.save_config()
+
+    def load_config(self, config: dict) ->None:
         self.config |= config
 
         self.view.load_config(self.config['view'])
         self.view.load_theme(self.config['colors'], self.config['tags'])
         self.workspace.load_config(self.config['workspace'])
 
-    def save_config(self):
+    def save_config(self) -> None:
         # update view config
-        if not self.view.zoomed():
-            self.config['view'].update({
-                'width': self.view.winfo_width(),
-                'height': self.view.winfo_height()
-            })
+        view_config = self.config['view']
 
-        self.config['view']['state'] = 'zoomed' if self.view.zoomed() else 'normal'
+        if not self.view.zoomed():
+            view_config['width'] = self.view.winfo_width()
+            view_config['height'] = self.view.winfo_height()
+
+        view_config['state'] = 'zoomed' if self.view.zoomed() else 'normal'
 
         # update workspace config
-        self.config['workspace']['last_file'] = self.workspace.path or ''
+        ws_config = self.config['workspace']
+
+        ws_config['last_file'] = self.workspace.path or ''
 
         # tags
         for name, settings in self.config.pop('tags').items():
@@ -147,26 +153,27 @@ class Capricorn():
         with open(self.config_path, 'w') as configfile:
             config.write(configfile)
 
-    def run(self):
+    def run(self) -> None:
         self.view.mainloop()
 
-    def on_text_change(self, event):
+    def on_text_change(self, _:tk.Event) -> None:
         self.workspace.update_word_count()
 
         # tag all patterns
         for tag, pattern in self.config['patterns'].items():
             self.workspace.tag_pattern(pattern, tag)
 
-        if self.workspace.set_unsaved():
+        if self.workspace.saved:
+            self.workspace.saved = False
             self.update_title()
 
-    def on_insert_move(self, event):
+    def on_insert_move(self, _:tk.Event) -> None:
         self.workspace.update_insert_pos()
 
-    def update_title(self):
+    def update_title(self) -> None:
         self.view.title(self.workspace.get_title())
 
-    def check_saved(self):
+    def check_saved(self) -> bool:
         """ Check if the file is saved and can be closed. 
             Returns True if it can be closed, esle False  """
         
@@ -185,7 +192,7 @@ class Capricorn():
 
         return False            # cancel
 
-    def new_file(self, event=None) -> bool:
+    def new_file(self, _:tk.Event=None) -> bool:
         if not self.check_saved():
             return False
 
@@ -193,7 +200,7 @@ class Capricorn():
         self.update_title()
         return True
 
-    def open(self, event=None, filename=None) -> bool:
+    def open(self, _:tk.Event = None, filename:str = None) -> bool:
         if not self.check_saved():
             return False
 
@@ -210,10 +217,10 @@ class Capricorn():
         self.update_title()
         return result
 
-    def save(self, event=None):
-        return self.save_as(event=event, filename=self.workspace.path)
+    def save(self, _:tk.Event = None) -> bool:
+        return self.save_as(filename=self.workspace.path)
 
-    def save_as(self, event=None, filename=None) -> bool:
+    def save_as(self, event:tk.Event = None, filename:str = None) -> bool:
         path = filename or filedialog.asksaveasfilename(**FILEDIALOG_OPTIONS)
         if not path:
             return False
@@ -227,7 +234,7 @@ class Capricorn():
         self.update_title()
         return result
 
-    def exit(self, *args):
+    def exit(self, *args) -> None:
         # save config
         self.save_config()
 
@@ -238,6 +245,7 @@ class Capricorn():
 #TODO: color picker entry
 #TODO: tags dialog
 #TODO: latex exporter
+#TODO: config 'last_file' only if saved
 if __name__ == '__main__':
     filename = sys.argv[1] if len(sys.argv) > 1 else None
 

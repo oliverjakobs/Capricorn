@@ -59,7 +59,7 @@ namespace eval ttk::theme::capricorn {
 # view
 #============================================================================
 class View(tk.Tk):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         # icon
         try:    self.iconbitmap('capricorn.ico')
@@ -79,16 +79,16 @@ class View(tk.Tk):
         ttk.Style().theme_use('capricorn')
 
         # bind events (binding to text widget to override text specific events)
-        self.text.bind('<Control-n>', lambda e: self.on_event('<<new>>'))
-        self.text.bind('<Control-o>', lambda e: self.on_event('<<open>>'))
-        self.text.bind('<Control-s>', lambda e: self.on_event('<<save>>'))
-        self.text.bind('<Control-S>', lambda e: self.on_event('<<save-as>>'))
+        self.text.bind('<Control-n>', lambda _: self.on_event('<<new>>'))
+        self.text.bind('<Control-o>', lambda _: self.on_event('<<open>>'))
+        self.text.bind('<Control-s>', lambda _: self.on_event('<<save>>'))
+        self.text.bind('<Control-S>', lambda _: self.on_event('<<save-as>>'))
 
-    def load_config(self, config):
+    def load_config(self, config: dict) -> None:
         self.geometry(f"{config['width']}x{config['height']}")
         self.state(config['state'])
 
-    def load_theme(self, colors, tags):
+    def load_theme(self, colors: dict, tags: dict) -> None:
         # set colors
         color_str = " ".join(['-%s "%s"' % (c, colors[c]) for c in colors])
         self.tk.eval("namespace eval ttk::theme::capricorn {array set colors {%s}}" % color_str)
@@ -107,7 +107,7 @@ class View(tk.Tk):
         self.event_generate(sequence)
         return 'break'
 
-    def create_menu(self):
+    def create_menu(self) -> None:
         menu = ExtendedMenu(self)
 
         # file
@@ -142,7 +142,7 @@ class View(tk.Tk):
 
         self.config(menu=menu)
 
-    def create_workspace(self):
+    def create_workspace(self) -> None:
         workspace = ttk.Frame(self)
         workspace.columnconfigure(0, weight=1)
         workspace.rowconfigure(0, weight=1)
@@ -168,7 +168,7 @@ class View(tk.Tk):
 
         workspace.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
-    def create_statusbar(self):
+    def create_statusbar(self) -> None:
         statusbar = ttk.Frame(self, style='Statusbar.TFrame')
         statusbar.columnconfigure(1, weight=1)
 
@@ -187,11 +187,11 @@ class View(tk.Tk):
 
         statusbar.pack(side=tk.BOTTOM, fill=tk.X)
 
-    def write_status(self, msg):
+    def write_status(self, msg: str) -> None:
         self.status.write(msg)
 
-    def write_error(self, msg):
+    def write_error(self, msg: str) -> None:
         self.status.write("[Error]: " + msg)
 
-    def zoomed(self):
+    def zoomed(self) -> bool:
         return self.state() == 'zoomed'
