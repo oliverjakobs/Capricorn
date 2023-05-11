@@ -37,12 +37,15 @@ DEFAULT_CONFIG = {
     },
     'patterns': {
         'title': '#.*',
-        'separator': '\*\*\*'
+        'separator': '\*\*\*',
+        'paragraph': '§.*'
     },
     'tag.title': {
         'foreground': '#a968c2',
-        'font':
-        '"Courier New" 24 bold'
+        'font': '"Courier New" 24 bold'
+    },
+    'tag.paragraph': {
+        'font': '"Courier New" 14 bold'
     },
     'tag.separator': {
         'foreground': '#6f6f6f',
@@ -79,7 +82,7 @@ class Capricorn():
         # parse config file
         config = ConfigParser()
         config.read_dict(DEFAULT_CONFIG)
-        config.read(config_path)
+        config.read(config_path, encoding="utf-8")
 
         self.config_path = config_path
         # apply config
@@ -150,7 +153,7 @@ class Capricorn():
         config = ConfigParser()
         config.read_dict(self.config)
 
-        with open(self.config_path, 'w') as configfile:
+        with open(self.config_path, 'w', encoding="utf-8") as configfile:
             config.write(configfile)
 
     def run(self) -> None:
